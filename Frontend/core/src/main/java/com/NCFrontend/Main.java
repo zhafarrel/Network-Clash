@@ -1,34 +1,37 @@
 package com.NCFrontend;
 
-import com.badlogic.gdx.ApplicationAdapter;
-import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.graphics.GL20;
-import com.badlogic.gdx.graphics.Texture;
+import com.NCFrontend.managers.MyAssetManager;
+import com.NCFrontend.screens.MainMenuScreen;
+import com.badlogic.gdx.Game;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.utils.ScreenUtils;
 
-/** {@link com.badlogic.gdx.ApplicationListener} implementation shared by all platforms. */
-public class Main extends ApplicationAdapter {
-    private SpriteBatch batch;
-    private Texture image;
+public class Main extends Game {
+    // SpriteBatch di-public agar bisa diakses oleh layar lain untuk menggambar
+    public SpriteBatch batch;
+    private MyAssetManager assetManager;
 
     @Override
     public void create() {
         batch = new SpriteBatch();
-        image = new Texture("libgdx.png");
+
+        // Panggil Singleton AssetManager
+        assetManager = MyAssetManager.getInstance();
+
+        // Pindah ke layar Main Menu pertama kali dibuka
+        this.setScreen(new MainMenuScreen(this));
     }
 
     @Override
     public void render() {
-        ScreenUtils.clear(0.15f, 0.15f, 0.2f, 1f);
-        batch.begin();
-        batch.draw(image, 140, 210);
-        batch.end();
+        // SANGAT PENTING: Ini yang membuat method render() di dalam Screen bisa berjalan!
+        super.render();
     }
 
     @Override
     public void dispose() {
         batch.dispose();
-        image.dispose();
+        if (assetManager != null) {
+            assetManager.dispose();
+        }
     }
 }
