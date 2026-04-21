@@ -21,6 +21,9 @@ public class CardActor extends Group {
     private Image frame;
     private BitmapFont font;
 
+    // VARIABEL BARU: Mengecek apakah kartu di tangan (buka) atau di deck (tutup)
+    public boolean isFaceUp = true;
+
     public CardActor(BaseCard data, Texture illustrationTex) {
         this.data = data;
 
@@ -64,8 +67,20 @@ public class CardActor extends Group {
 
     @Override
     public void draw(Batch batch, float parentAlpha) {
+        // --- EFEK KARTU MENGHADAP BELAKANG ---
+        if (!isFaceUp) {
+            illustration.setColor(0.1f, 0.1f, 0.1f, 1f); // Dibuat sangat gelap
+            if (frame != null) frame.setColor(0.4f, 0.4f, 0.4f, 1f);
+        } else {
+            illustration.setColor(0.3f, 0.3f, 0.3f, 1f); // Warna normal
+            if (frame != null) frame.setColor(1f, 1f, 1f, 1f);
+        }
+
         // 1. Gambar background texture (otomatis di-scale oleh LibGDX)
         super.draw(batch, parentAlpha);
+
+        // JIKA KARTU MENGHADAP BELAKANG (DI DECK), JANGAN GAMBAR TEKS/STAT!
+        if (!isFaceUp) return;
 
         // --- 2. MAGIC TRICK: MATRIX TRANSFORM ---
         batch.flush(); // Wajib dipanggil sebelum mengubah matrix
