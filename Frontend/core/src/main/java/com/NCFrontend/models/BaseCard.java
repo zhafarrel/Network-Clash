@@ -7,4 +7,5 @@ public abstract class BaseCard {
     public String description;
     public String type; // PROGRAM, MALWARE, SCRIPT
     public String faction;
+    public String validLane;
 }
