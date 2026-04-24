@@ -1,29 +1,25 @@
 package com.NCFrontend.screens;
 
 import com.NCFrontend.logic.CardFactory;
+import com.NCFrontend.managers.EnemyAIManager;
 import com.NCFrontend.network.ApiClient;
 import com.NCFrontend.ui.CardActor;
-import com.NCFrontend.models.BaseCard;
-import com.NCFrontend.models.ScriptData;
+import com.NCFrontend.managers.GamePhaseManager;
+import com.NCFrontend.managers.UIManager;
+import com.NCFrontend.managers.CardInteractionHandler;
+
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.ScreenAdapter;
-import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
-import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.math.Interpolation;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Actor;
-import com.badlogic.gdx.scenes.scene2d.InputEvent;
-import com.badlogic.gdx.scenes.scene2d.InputListener;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.actions.Actions;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
-import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
-import com.badlogic.gdx.scenes.scene2d.utils.DragAndDrop;
 import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.ObjectMap;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -31,23 +27,35 @@ import com.google.gson.JsonElement;
 
 public class GameplayScreen extends ScreenAdapter {
 
-    public enum GamePhase { PLAYER_DRAW, PLAYER_MAIN, ENEMY_TURN }
+    public Stage stage;
 
-    private Stage stage;
-    private DragAndDrop dragAndDrop;
-    private Array<CardActor> deck = new Array<>();
-    private Array<CardActor> hand = new Array<>();
-    private Label deckCountLabel;
-    private Label phaseLabel;
-    private final int MAX_HAND_SIZE = 7;
-    private GamePhase currentPhase = GamePhase.PLAYER_DRAW;
-    private boolean isFirstTurn = true;
+    // --- PENYIMPANAN STATE/MEMORI DATA PEMAIN ---
+    public Array<CardActor> deck = new Array<>();
+    public Array<CardActor> hand = new Array<>();
+    public ObjectMap<String, CardActor> activeCards = new ObjectMap<>();
+    public final int MAX_HAND_SIZE = 7;
+    public CardActor dummyDeckVisual;
+
+    // --- PENYIMPANAN STATE/MEMORI DATA MUSUH (AI) ---
+    public Array<CardActor> enemyDeck = new Array<>();
+    public Array<CardActor> enemyHand = new Array<>();
+    public ObjectMap<String, CardActor> enemyActiveCards = new ObjectMap<>();
+
+    // --- PARA MANAGER ---
+    public GamePhaseManager phaseManager;
+    public UIManager uiManager;
+    public CardInteractionHandler interactionHandler;
+    public EnemyAIManager enemyAI;
 
     public GameplayScreen() {
         stage = new Stage(new ScreenViewport());
-        dragAndDrop = new DragAndDrop();
-        dragAndDrop.setTapSquareSize(10);
         Gdx.input.setInputProcessor(stage);
+
+        // Inisialisasi Manager
+        phaseManager = new GamePhaseManager(this);
+        uiManager = new UIManager(this);
+        interactionHandler = new CardInteractionHandler(this);
+        enemyAI = new EnemyAIManager(this); // Inisialisasi AI Musuh
     }
 
     @Override
@@ -59,163 +67,83 @@ public class GameplayScreen extends ScreenAdapter {
             stage.addActor(background);
         } catch (Exception e) {}
 
-        createDropZone("Localhost", 300, 200, 175, 230);
-        createDropZone("Cloud Storage", 700, 200, 175, 230);
-        createDropZone("DMZ", 1100, 200, 175, 230);
-        createDropZone("Dark Node", 1500, 200, 175, 230);
+        // Bangun Layout UI & Zone Drop
+        interactionHandler.setupZonesAndButtons();
+        uiManager.setupUI();
 
-        setupUI();
-
+        // Tarik Data Kartu dari Backend
         ApiClient.fetchAllCards(new ApiClient.FetchCardsCallback() {
             @Override
             public void onSuccess(String jsonResponse) {
                 Gson gson = new Gson();
                 JsonArray cardArray = gson.fromJson(jsonResponse, JsonArray.class);
+
+                // --- 1. BUAT KARTU PAJANGAN DECK PEMAIN ---
+                if (cardArray.size() > 0) {
+                    dummyDeckVisual = CardFactory.createVisualCard(cardArray.get(0).toString());
+                    dummyDeckVisual.isFaceUp = false; // Telungkup
+                    dummyDeckVisual.setScale(0.5f);
+                    dummyDeckVisual.setPosition(50, 350); // Posisi Deck Pemain
+                    stage.addActor(dummyDeckVisual);
+                }
+
+                // --- 2. LOAD KARTU & PISAHKAN BERDASARKAN FACTION ---
                 for (JsonElement element : cardArray) {
                     CardActor visualCard = CardFactory.createVisualCard(element.toString());
+                    visualCard.setVisible(false); // Sembunyikan aslinya
                     visualCard.isFaceUp = false;
                     visualCard.setScale(0.5f);
-                    visualCard.setPosition(50, 350);
+
+                    // Pengecekan Faction (OMEGA vs SYSADMIN)
+                    if (visualCard.getData().faction.equalsIgnoreCase("OMEGA")) {
+                        visualCard.setPosition(1500, 800); // Taruh deck musuh di luar layar atas
+                        enemyDeck.add(visualCard);
+                    } else {
+                        visualCard.setPosition(50, 350); // Taruh di deck pemain
+                        deck.add(visualCard);
+                        interactionHandler.registerCard(visualCard); // Hanya daftarkan kartu pemain untuk di-drag
+                    }
+
                     stage.addActor(visualCard);
-                    deck.add(visualCard);
-                    setupHoverEffect(visualCard);
+                }
 
-                    dragAndDrop.addSource(new DragAndDrop.Source(visualCard) {
-                        @Override
-                        public DragAndDrop.Payload dragStart(InputEvent event, float x, float y, int pointer) {
-                            if (currentPhase != GamePhase.PLAYER_MAIN || !hand.contains(visualCard, true)) return null;
-                            DragAndDrop.Payload payload = new DragAndDrop.Payload();
-                            payload.setObject(visualCard);
-                            payload.setDragActor(visualCard);
-                            visualCard.setScale(1.0f);
-                            visualCard.toFront();
-                            return payload;
-                        }
-                        @Override
-                        public void dragStop(InputEvent event, float x, float y, int pointer, DragAndDrop.Payload payload, DragAndDrop.Target target) {
-                            if (target == null) {
-                                Vector2 origin = (Vector2) visualCard.getUserObject();
-                                visualCard.clearActions();
-                                visualCard.addAction(Actions.parallel(
-                                    Actions.scaleTo(1.0f, 1.0f, 0.2f),
-                                    Actions.moveTo(origin.x, origin.y, 0.2f, Interpolation.pow3Out)
-                                ));
-                                refreshHandZIndex();
-                            }
-                        }
-                    });
-                }
-                deck.shuffle();
-                startPlayerTurn();
-            }
-            @Override public void onError(Throwable t) {}
-        });
-    }
+                // Acak deck musuh secara normal
+                enemyDeck.shuffle();
 
-    private void setupHoverEffect(CardActor card) {
-        card.addListener(new InputListener() {
-            @Override
-            public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
-                if (pointer == -1 && hand.contains(card, true) && currentPhase == GamePhase.PLAYER_MAIN) {
-                    card.toFront();
-                    card.clearActions();
-                    Vector2 origin = (Vector2) card.getUserObject();
-                    card.addAction(Actions.parallel(
-                        Actions.scaleTo(1.25f, 1.25f, 0.15f, Interpolation.smooth),
-                        Actions.moveTo(origin.x, origin.y + 40, 0.15f, Interpolation.smooth)
-                    ));
-                }
+                // Gunakan algoritma penghalus tangan awal untuk Pemain (Mulligan)
+                smoothOpeningHand();
+
+                // Mulai Game
+                phaseManager.startPlayerTurn();
             }
-            @Override
-            public void exit(InputEvent event, float x, float y, int pointer, Actor toActor) {
-                if (pointer == -1 && hand.contains(card, true)) {
-                    card.clearActions();
-                    Vector2 origin = (Vector2) card.getUserObject();
-                    card.addAction(Actions.parallel(
-                        Actions.scaleTo(1.0f, 1.0f, 0.15f, Interpolation.smooth),
-                        Actions.moveTo(origin.x, origin.y, 0.15f, Interpolation.smooth)
-                    ));
-                    refreshHandZIndex();
-                }
+            @Override public void onError(Throwable t) {
+                Gdx.app.error("Game", "Koneksi Backend Gagal!");
             }
         });
     }
 
-    private void startPlayerTurn() {
-        currentPhase = GamePhase.PLAYER_DRAW;
-        phaseLabel.setText("GILIRAN: SYSADMIN");
-        phaseLabel.setColor(Color.CYAN);
-        if (isFirstTurn) {
-            isFirstTurn = false;
-            float delay = 0.3f;
-            for (int i = 0; i < 6; i++) {
-                stage.addAction(Actions.delay(i * delay, Actions.run(new Runnable() {
-                    @Override public void run() { drawCard(); }
-                })));
-            }
-            stage.addAction(Actions.delay(6 * delay, Actions.run(new Runnable() {
-                @Override public void run() { currentPhase = GamePhase.PLAYER_MAIN; }
-            })));
-        } else {
-            drawCard();
-            currentPhase = GamePhase.PLAYER_MAIN;
-        }
-    }
+    // =====================================
+    // HELPER METHODS (DIPANGGIL OLEH MANAGER LAIN)
+    // =====================================
 
-    private void endPlayerTurn() {
-        currentPhase = GamePhase.ENEMY_TURN;
-        phaseLabel.setText("GILIRAN: O.M.E.G.A");
-        phaseLabel.setColor(Color.RED);
-        stage.addAction(Actions.delay(2.0f, Actions.run(new Runnable() {
-            @Override public void run() { startPlayerTurn(); }
-        })));
-    }
-
-    private void setupUI() {
-        float screenW = stage.getViewport().getWorldWidth();
-        float screenH = stage.getViewport().getWorldHeight();
-        deckCountLabel = new Label("0", new Label.LabelStyle(new BitmapFont(), Color.YELLOW));
-        deckCountLabel.setFontScale(2.5f);
-        deckCountLabel.setPosition(80, 420);
-        stage.addActor(deckCountLabel);
-
-        phaseLabel = new Label("MEMUAT...", new Label.LabelStyle(new BitmapFont(), Color.WHITE));
-        phaseLabel.setFontScale(2.0f);
-        phaseLabel.setPosition(screenW / 2f - 100, screenH - 50);
-        stage.addActor(phaseLabel);
-
-        Pixmap btnPix = new Pixmap(180, 50, Pixmap.Format.RGBA8888);
-        btnPix.setColor(new Color(0.8f, 0.2f, 0.2f, 1f));
-        btnPix.fill();
-        Image endTurnBtn = new Image(new Texture(btnPix));
-        btnPix.dispose();
-        endTurnBtn.setPosition(screenW - 200, 20);
-        stage.addActor(endTurnBtn);
-        endTurnBtn.addListener(new ClickListener() {
-            @Override public void clicked(InputEvent event, float x, float y) {
-                if (currentPhase == GamePhase.PLAYER_MAIN) endPlayerTurn();
-            }
-        });
-    }
-
-    private void drawCard() {
+    public void drawCard() {
         if (deck.size > 0 && hand.size < MAX_HAND_SIZE) {
             CardActor card = deck.pop();
+
+            card.setVisible(true); // Munculkan kartu yang ditarik ke tangan!
             card.isFaceUp = true;
             hand.add(card);
             updateHandPositions();
+            uiManager.updateDeckCount(deck.size);
 
-            // --- PERBAIKAN DI SINI ---
-            // Update teks jumlah kartu
-            deckCountLabel.setText(String.valueOf(deck.size));
-
-            // Paksa label angka untuk selalu pindah ke lapisan paling depan
-            // agar tidak tertutup tumpukan kartu fisik di deck
-            deckCountLabel.toFront();
+            // JIKA DECK HABIS, HILANGKAN PAJANGAN
+            if (deck.size == 0 && dummyDeckVisual != null) {
+                dummyDeckVisual.setVisible(false);
+            }
         }
     }
 
-    private void updateHandPositions() {
+    public void updateHandPositions() {
         float screenWidth = Gdx.graphics.getWidth();
         float cardWidth = 210;
         float spacing = -60;
@@ -234,52 +162,89 @@ public class GameplayScreen extends ScreenAdapter {
         refreshHandZIndex();
     }
 
-    private void refreshHandZIndex() {
+    public void refreshHandZIndex() {
         for (CardActor c : hand) {
             c.toFront();
         }
     }
 
-    private void createDropZone(String zoneName, float x, float y, float width, float height) {
-        Pixmap pixmap = new Pixmap((int) width, (int) height, Pixmap.Format.RGBA8888);
-        pixmap.setColor(new Color(0, 1, 0, 0.3f));
-        pixmap.fill();
-        Image dropZone = new Image(new Texture(pixmap));
-        pixmap.dispose();
-        dropZone.setPosition(x, y);
-        stage.addActor(dropZone);
+    public void placeCardInSlot(CardActor card, String zoneName, Actor dropZone) {
+        card.clearActions();
+        card.setScale(0.55f);
+        float scaledW = card.getWidth() * 0.55f;
+        float scaledH = card.getHeight() * 0.55f;
 
-        dragAndDrop.addTarget(new DragAndDrop.Target(dropZone) {
-            @Override
-            public boolean drag(DragAndDrop.Source source, DragAndDrop.Payload payload, float x, float y, int pointer) {
-                CardActor card = (CardActor) payload.getObject();
-                BaseCard cardData = card.getData();
-                String cardLane = cardData.validLane;
-                if (cardLane != null && (zoneName.equalsIgnoreCase(cardLane) || cardLane.equalsIgnoreCase("ANY_LANE") || cardData instanceof ScriptData)) {
-                    getActor().setColor(new Color(0, 1, 1, 0.6f));
-                    return true;
-                }
-                getActor().setColor(new Color(1, 0, 0, 0.6f));
-                return false;
-            }
-            @Override public void reset(DragAndDrop.Source source, DragAndDrop.Payload payload) { getActor().setColor(Color.WHITE); }
-            @Override
-            public void drop(DragAndDrop.Source source, DragAndDrop.Payload payload, float x, float y, int pointer) {
-                CardActor card = (CardActor) payload.getObject();
-                hand.removeValue(card, true);
-                updateHandPositions();
+        card.setPosition(
+            dropZone.getX() + (dropZone.getWidth() / 2f) - (scaledW / 2f),
+            dropZone.getY() + (dropZone.getHeight() / 2f) - (scaledH / 2f)
+        );
 
-                if (card.getData() instanceof ScriptData) {
-                    card.addAction(Actions.sequence(Actions.parallel(Actions.scaleTo(0.1f, 0.1f, 0.3f), Actions.fadeOut(0.3f)), Actions.removeActor()));
-                } else {
-                    card.clearActions();
-                    card.setScale(0.55f);
-                    float scaledW = card.getWidth() * 0.55f;
-                    float scaledH = card.getHeight() * 0.55f;
-                    card.setPosition(getActor().getX() + (getActor().getWidth()/2f) - (scaledW/2f), getActor().getY() + (getActor().getHeight()/2f) - (scaledH/2f));
-                }
+        activeCards.put(zoneName, card);
+
+        // (Catatan: Logika memunculkan tombol Execute sekarang diatur otomatis
+        // oleh isOnBoard di dalam method draw() milik CardActor.java)
+    }
+
+    // =====================================
+    // ALGORITMA PENGHALUS TANGAN AWAL (MULLIGAN)
+    // =====================================
+    private void smoothOpeningHand() {
+        Array<CardActor> cost1Cards = new Array<>();
+        Array<CardActor> cost2Cards = new Array<>();
+        Array<CardActor> expensiveCards = new Array<>(); // Cost 3 ke atas
+
+        // 1. Pisahkan kartu berdasarkan RAM Cost
+        for (CardActor card : deck) {
+            int cost = card.getData().cost;
+            if (cost <= 1) { // Menangkap cost 0 (jika ada script gratis) dan 1
+                cost1Cards.add(card);
+            } else if (cost == 2) {
+                cost2Cards.add(card);
+            } else {
+                expensiveCards.add(card);
             }
-        });
+        }
+
+        // Acak masing-masing kelompok
+        cost1Cards.shuffle();
+        cost2Cards.shuffle();
+        expensiveCards.shuffle();
+
+        Array<CardActor> newDeck = new Array<>();
+
+        // 2. Susun "Top Deck" (Kartu yang akan ditarik pertama kali)
+        for (int i = 0; i < 2; i++) {
+            if (cost1Cards.size > 0) newDeck.add(cost1Cards.pop());
+        }
+        for (int i = 0; i < 2; i++) {
+            if (cost2Cards.size > 0) newDeck.add(cost2Cards.pop());
+        }
+
+        // Penuhi slot jika kartu 1 atau 2 kurang
+        while (newDeck.size < 4 && (cost1Cards.size > 0 || cost2Cards.size > 0)) {
+            if (cost1Cards.size > 0) newDeck.add(cost1Cards.pop());
+            else if (cost2Cards.size > 0) newDeck.add(cost2Cards.pop());
+        }
+
+        // 3. Masukkan sisa kartu menjadi satu tumpukan lalu acak
+        Array<CardActor> remainingCards = new Array<>();
+        remainingCards.addAll(cost1Cards);
+        remainingCards.addAll(cost2Cards);
+        remainingCards.addAll(expensiveCards);
+        remainingCards.shuffle();
+
+        // 4. Gabungkan sisa kartu ke bawah "Top Deck"
+        newDeck.addAll(remainingCards);
+
+        // Membalik urutan newDeck agar "Top Deck" berada di akhir array
+        // (karena Array.pop() mengambil dari indeks terakhir)
+        newDeck.reverse();
+
+        // 5. Timpa deck lama dengan deck yang sudah disempurnakan
+        deck.clear();
+        deck.addAll(newDeck);
+
+        Gdx.app.log("Mulligan", "Deck Pemain berhasil diurutkan untuk tangan awal yang mulus!");
     }
 
     @Override public void render(float delta) {
@@ -288,6 +253,10 @@ public class GameplayScreen extends ScreenAdapter {
         stage.act(delta);
         stage.draw();
     }
+
     @Override public void resize(int width, int height) { stage.getViewport().update(width, height, true); }
-    @Override public void dispose() { stage.dispose(); }
+
+    @Override public void dispose() {
+        stage.dispose();
+    }
 }

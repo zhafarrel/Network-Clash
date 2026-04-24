@@ -7,7 +7,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.util.Arrays;
-import java.util.List;
 
 @Configuration
 public class DataSeeder {
@@ -15,12 +14,10 @@ public class DataSeeder {
     @Bean
     CommandLineRunner initDatabase(CardRepository cardRepository) {
         return args -> {
-            // Cek apakah tabel master_cards masih kosong (jumlah data = 0)
             if (cardRepository.count() == 0) {
                 System.out.println("Database kosong. Menyuntikkan data kartu awal...");
 
-                // Program (Sysadmin)
-                // ==========================================
+// ==========================================
 // LANE: LOCALHOST
 // ==========================================
 
@@ -29,7 +26,7 @@ public class DataSeeder {
                 golem.setId("prog_01");
                 golem.setName("Firewall Golem");
                 golem.setCost(3);
-                golem.setDescription("Vanguard (PASSIVE): Jika Lane di sebelah kanan atau kiri Golem ini kosong, musuh di Lane tersebut dipaksa untuk menyerang Firewall Golem ini secara menyamping, alih-alih menyerang HP Sysadmin.");
+                golem.setDescription("Vanguard (PASSIVE): Musuh di lane kosong sebelahnya dipaksa menyerang kartu ini secara menyamping.");
                 golem.setType("PROGRAM");
                 golem.setFaction("SYSADMIN");
                 golem.setAtk(0);
@@ -40,7 +37,7 @@ public class DataSeeder {
                 paladin.setId("prog_02");
                 paladin.setName("Anti-Virus Paladin");
                 paladin.setCost(3);
-                paladin.setDescription("System Restore (PASSIVE): Memulihkan 1 HP untuk Program kawan di sebelahnya setiap akhir giliran.");
+                paladin.setDescription("System Restore (PASSIVE): Pulihkan 1 HP Program kawan di sebelahnya tiap akhir giliran.");
                 paladin.setType("PROGRAM");
                 paladin.setFaction("SYSADMIN");
                 paladin.setAtk(2);
@@ -51,7 +48,7 @@ public class DataSeeder {
                 guardian.setId("prog_03");
                 guardian.setName("Kernel Guardian");
                 guardian.setCost(4);
-                guardian.setDescription("Ring 0 Privilege (PASSIVE): Kebal terhadap efek penghancuran instan dari kartu Script musuh.");
+                guardian.setDescription("Ring 0 Privilege (PASSIVE): Kebal dari efek hancur instan kartu Script musuh.");
                 guardian.setType("PROGRAM");
                 guardian.setFaction("SYSADMIN");
                 guardian.setAtk(3);
@@ -62,7 +59,7 @@ public class DataSeeder {
                 mutex.setId("prog_04");
                 mutex.setName("Mutex Lock");
                 mutex.setCost(2);
-                mutex.setDescription("Thread Sync (EXECUTE/FLOOP): Miringkan kartu ini untuk mengunci 1 Program musuh di depannya; musuh tersebut tidak bisa menyerang pada giliran ini.");
+                mutex.setDescription("Thread Sync (EXECUTE): Kunci 1 Program musuh di depan agar tak bisa serang giliran ini.");
                 mutex.setType("PROGRAM");
                 mutex.setFaction("SYSADMIN");
                 mutex.setAtk(0);
@@ -74,7 +71,7 @@ public class DataSeeder {
                 worm.setId("malw_01");
                 worm.setName("Rootkit Worm");
                 worm.setCost(2);
-                worm.setDescription("Deep Infection (PASSIVE): Serangan mengabaikan efek perlindungan (Vanguard) musuh.");
+                worm.setDescription("Deep Infection (PASSIVE): Serangan mengabaikan efek Vanguard musuh.");
                 worm.setType("MALWARE");
                 worm.setFaction("OMEGA");
                 worm.setAtk(2);
@@ -85,7 +82,7 @@ public class DataSeeder {
                 bootVirus.setId("malw_02");
                 bootVirus.setName("Boot Sector Virus");
                 bootVirus.setCost(3);
-                bootVirus.setDescription("Corrupt Boot (EXECUTE/FLOOP): Memberikan 1 Damage langsung ke HP Sysadmin, mengabaikan Program di depannya.");
+                bootVirus.setDescription("Corrupt Boot (EXECUTE): Beri 1 Damage langsung ke HP Sysadmin (Bypass).");
                 bootVirus.setType("MALWARE");
                 bootVirus.setFaction("OMEGA");
                 bootVirus.setAtk(3);
@@ -96,7 +93,7 @@ public class DataSeeder {
                 logicBomb.setId("malw_03");
                 logicBomb.setName("Logic Bomb");
                 logicBomb.setCost(2);
-                logicBomb.setDescription("Countdown (PASSIVE): Di akhir giliran ke-2 setelah dimainkan, hancur dan beri 6 Damage besar ke depan.");
+                logicBomb.setDescription("Countdown (PASSIVE): Hancur di akhir giliran ke-2 & beri 6 Damage ke depan.");
                 logicBomb.setType("MALWARE");
                 logicBomb.setFaction("OMEGA");
                 logicBomb.setAtk(0);
@@ -107,13 +104,12 @@ public class DataSeeder {
                 escalator.setId("malw_04");
                 escalator.setName("Privilege Escalator");
                 escalator.setCost(3);
-                escalator.setDescription("Sudo Access (PASSIVE): Mendapat permanen +1 ATK setiap kali ada Program Sysadmin yang hancur di papan.");
+                escalator.setDescription("Sudo Access (PASSIVE): +1 ATK permanen tiap ada Program Sysadmin yang hancur.");
                 escalator.setType("MALWARE");
                 escalator.setFaction("OMEGA");
                 escalator.setAtk(2);
                 escalator.setHp(3);
                 escalator.setValidLane("Localhost");
-
 
 // ==========================================
 // LANE: CLOUD STORAGE
@@ -124,7 +120,7 @@ public class DataSeeder {
                 dataMiner.setId("prog_05");
                 dataMiner.setName("Data Miner");
                 dataMiner.setCost(2);
-                dataMiner.setDescription("Overclock (EXECUTE/FLOOP): Miringkan kartu ini untuk mendapat +1 RAM ekstra sementara di giliran ini.");
+                dataMiner.setDescription("Overclock (EXECUTE): Dapatkan +1 RAM ekstra giliran ini.");
                 dataMiner.setType("PROGRAM");
                 dataMiner.setFaction("SYSADMIN");
                 dataMiner.setAtk(1);
@@ -135,7 +131,7 @@ public class DataSeeder {
                 loadBalancer.setId("prog_06");
                 loadBalancer.setName("Load Balancer");
                 loadBalancer.setCost(4);
-                loadBalancer.setDescription("Reroute Traffic (EXECUTE/FLOOP): Miringkan kartu ini untuk bertukar posisi dengan Program kawan di lane bersebelahan.");
+                loadBalancer.setDescription("Reroute Traffic (EXECUTE): Tukar posisi dengan Program kawan di lane sebelah.");
                 loadBalancer.setType("PROGRAM");
                 loadBalancer.setFaction("SYSADMIN");
                 loadBalancer.setAtk(2);
@@ -146,7 +142,7 @@ public class DataSeeder {
                 backupServer.setId("prog_07");
                 backupServer.setName("Backup Server");
                 backupServer.setCost(3);
-                backupServer.setDescription("Redundancy (PASSIVE): Jika Program kawan di lane sebelahnya hancur, pulihkan 2 HP untuk Sysadmin.");
+                backupServer.setDescription("Redundancy (PASSIVE): Pulihkan 2 HP Sysadmin jika Program kawan di sebelahnya hancur.");
                 backupServer.setType("PROGRAM");
                 backupServer.setFaction("SYSADMIN");
                 backupServer.setAtk(1);
@@ -157,7 +153,7 @@ public class DataSeeder {
                 interruptHandler.setId("prog_08");
                 interruptHandler.setName("Interrupt Handler");
                 interruptHandler.setCost(1);
-                interruptHandler.setDescription("Preemption (EXECUTE/FLOOP): Paksa 1 kartu musuh kehilangan kemampuan Floop-nya untuk giliran berikutnya.");
+                interruptHandler.setDescription("Preemption (EXECUTE): Hilangkan kemampuan EXECUTE 1 musuh untuk giliran depan.");
                 interruptHandler.setType("PROGRAM");
                 interruptHandler.setFaction("SYSADMIN");
                 interruptHandler.setAtk(1);
@@ -169,7 +165,7 @@ public class DataSeeder {
                 wasp.setId("malw_05");
                 wasp.setName("Spyware Wasp");
                 wasp.setCost(2);
-                wasp.setDescription("Infiltrate (PASSIVE): Serangannya Bypass (langsung menyerang HP Sysadmin).");
+                wasp.setDescription("Infiltrate (PASSIVE): Serangan Bypass (langsung ke HP Sysadmin).");
                 wasp.setType("MALWARE");
                 wasp.setFaction("OMEGA");
                 wasp.setAtk(2);
@@ -180,7 +176,7 @@ public class DataSeeder {
                 cryptoJacker.setId("malw_06");
                 cryptoJacker.setName("Crypto-Jacker");
                 cryptoJacker.setCost(3);
-                cryptoJacker.setDescription("Resource Theft (PASSIVE): Pada awal giliran, curi 1 RAM dari Sysadmin (batas maksimal RAM mereka berkurang 1).");
+                cryptoJacker.setDescription("Resource Theft (PASSIVE): Awal giliran, curi 1 max RAM Sysadmin.");
                 cryptoJacker.setType("MALWARE");
                 cryptoJacker.setFaction("OMEGA");
                 cryptoJacker.setAtk(1);
@@ -191,7 +187,7 @@ public class DataSeeder {
                 exfiltrator.setId("malw_07");
                 exfiltrator.setName("Data Exfiltrator");
                 exfiltrator.setCost(2);
-                exfiltrator.setDescription("Bandwidth Theft (EXECUTE/FLOOP): Intip tangan musuh dan paksa mereka membuang (discard) 1 kartu Script secara acak.");
+                exfiltrator.setDescription("Bandwidth Theft (EXECUTE): Paksa musuh buang (discard) 1 kartu Script secara acak.");
                 exfiltrator.setType("MALWARE");
                 exfiltrator.setFaction("OMEGA");
                 exfiltrator.setAtk(1);
@@ -202,13 +198,12 @@ public class DataSeeder {
                 shadowInstance.setId("malw_08");
                 shadowInstance.setName("Shadow Instance");
                 shadowInstance.setCost(3);
-                shadowInstance.setDescription("Ghost Process (PASSIVE): Selama Shadow Instance berada di papan, Malware kawan yang berada di lane bersebelahan tidak dapat ditargetkan oleh kartu Script musuh.");
+                shadowInstance.setDescription("Ghost Process (PASSIVE): Malware kawan di lane sebelah kebal target Script musuh.");
                 shadowInstance.setType("MALWARE");
                 shadowInstance.setFaction("OMEGA");
                 shadowInstance.setAtk(2);
                 shadowInstance.setHp(4);
                 shadowInstance.setValidLane("Cloud Storage");
-
 
 // ==========================================
 // LANE: DMZ
@@ -219,7 +214,7 @@ public class DataSeeder {
                 ids.setId("prog_09");
                 ids.setName("Intrusion Detection System");
                 ids.setCost(2);
-                ids.setDescription("Signature Detection (PASSIVE): Setiap kali musuh meletakkan kartu Malware di Lane DMZ ini, secara otomatis berikan 1 Damage kepada Malware tersebut.");
+                ids.setDescription("Signature Detection (PASSIVE): Beri 1 Damage tiap ada Malware baru ditaruh di lane ini.");
                 ids.setType("PROGRAM");
                 ids.setFaction("SYSADMIN");
                 ids.setAtk(1);
@@ -230,7 +225,7 @@ public class DataSeeder {
                 proxyShield.setId("prog_10");
                 proxyShield.setName("Reverse Proxy Shield");
                 proxyShield.setCost(3);
-                proxyShield.setDescription("Traffic Filter (PASSIVE): Mengurangi total damage yang diterima dari setiap serangan sebesar 1 poin.");
+                proxyShield.setDescription("Traffic Filter (PASSIVE): Kurangi damage yang diterima sebesar 1 poin.");
                 proxyShield.setType("PROGRAM");
                 proxyShield.setFaction("SYSADMIN");
                 proxyShield.setAtk(1);
@@ -241,7 +236,7 @@ public class DataSeeder {
                 waf.setId("prog_11");
                 waf.setName("Web App Firewall");
                 waf.setCost(3);
-                waf.setDescription("HTTP Filter (PASSIVE): Malware musuh yang ditempatkan di jalur ini menghabiskan biaya +1 RAM lebih mahal.");
+                waf.setDescription("HTTP Filter (PASSIVE): Malware musuh di lane ini biayanya +1 RAM.");
                 waf.setType("PROGRAM");
                 waf.setFaction("SYSADMIN");
                 waf.setAtk(2);
@@ -252,7 +247,7 @@ public class DataSeeder {
                 portScanner.setId("prog_12");
                 portScanner.setName("Port Scanner");
                 portScanner.setCost(3);
-                portScanner.setDescription("Vulnerability Check (EXECUTE/FLOOP): Beri 1 Damage ke musuh. Jika musuh hancur karena ini, ambil (draw) 1 kartu.");
+                portScanner.setDescription("Vulnerability Check (EXECUTE): Beri 1 Damage. Jika musuh mati, draw 1 kartu.");
                 portScanner.setType("PROGRAM");
                 portScanner.setFaction("SYSADMIN");
                 portScanner.setAtk(3);
@@ -264,7 +259,7 @@ public class DataSeeder {
                 ddos.setId("malw_09");
                 ddos.setName("DDoS Swarm");
                 ddos.setCost(3);
-                ddos.setDescription("Flood Network (EXECUTE/FLOOP): Memberi 1 Damage merata ke semua Program Sysadmin.");
+                ddos.setDescription("Flood Network (EXECUTE): Beri 1 Damage ke SEMUA Program Sysadmin.");
                 ddos.setType("MALWARE");
                 ddos.setFaction("OMEGA");
                 ddos.setAtk(3);
@@ -275,7 +270,7 @@ public class DataSeeder {
                 sqli.setId("malw_10");
                 sqli.setName("SQLi Payload");
                 sqli.setCost(3);
-                sqli.setDescription("Data Breach (PASSIVE): Setiap kali menghancurkan musuh, mendapat +1 RAM di giliran berikutnya.");
+                sqli.setDescription("Data Breach (PASSIVE): +1 RAM giliran depan tiap kali menghancurkan musuh.");
                 sqli.setType("MALWARE");
                 sqli.setFaction("OMEGA");
                 sqli.setAtk(2);
@@ -286,7 +281,7 @@ public class DataSeeder {
                 xss.setId("malw_11");
                 xss.setName("Cross-Site Scripter");
                 xss.setCost(2);
-                xss.setDescription("Session Hijack (EXECUTE/FLOOP): Paksa Program musuh di depannya menyerang HP Sysadmin-nya sendiri sebesar 1 Damage.");
+                xss.setDescription("Session Hijack (EXECUTE): Paksa Program musuh di depan serang HP Sysadmin 1 Damage.");
                 xss.setType("MALWARE");
                 xss.setFaction("OMEGA");
                 xss.setAtk(2);
@@ -297,13 +292,12 @@ public class DataSeeder {
                 pingOfDeath.setId("malw_12");
                 pingOfDeath.setName("Ping of Death");
                 pingOfDeath.setCost(4);
-                pingOfDeath.setDescription("Oversized Packet (PASSIVE): Sisa damage serangannya (setelah menghancurkan musuh) akan menembus ke HP Sysadmin.");
+                pingOfDeath.setDescription("Oversized Packet (PASSIVE): Sisa damage setelah musuh mati tembus ke HP Sysadmin.");
                 pingOfDeath.setType("MALWARE");
                 pingOfDeath.setFaction("OMEGA");
                 pingOfDeath.setAtk(4);
                 pingOfDeath.setHp(2);
                 pingOfDeath.setValidLane("DMZ");
-
 
 // ==========================================
 // LANE: DARK NODE
@@ -314,7 +308,7 @@ public class DataSeeder {
                 honeypot.setId("prog_13");
                 honeypot.setName("Honeypot Decoy");
                 honeypot.setCost(2);
-                honeypot.setDescription("Entrapment (PASSIVE): Jika dihancurkan oleh serangan musuh, berikan efek Stun ke musuh tersebut selama 2 giliran.");
+                honeypot.setDescription("Entrapment (PASSIVE): Stun musuh 2 giliran jika kartu ini dihancurkan.");
                 honeypot.setType("PROGRAM");
                 honeypot.setFaction("SYSADMIN");
                 honeypot.setAtk(0);
@@ -325,7 +319,7 @@ public class DataSeeder {
                 traceroute.setId("prog_14");
                 traceroute.setName("Traceroute Sentinel");
                 traceroute.setCost(3);
-                traceroute.setDescription("Ping Sweep (EXECUTE/FLOOP): Memberikan 2 Damage tembak jauh langsung ke Malware target di lane mana saja.");
+                traceroute.setDescription("Ping Sweep (EXECUTE): Beri 2 Damage ke target Malware di lane mana saja.");
                 traceroute.setType("PROGRAM");
                 traceroute.setFaction("SYSADMIN");
                 traceroute.setAtk(2);
@@ -336,7 +330,7 @@ public class DataSeeder {
                 threatHunter.setId("prog_15");
                 threatHunter.setName("Threat Hunter");
                 threatHunter.setCost(4);
-                threatHunter.setDescription("Active Defense (PASSIVE): Secara otomatis memberikan 1 Damage kepada Malware apa pun saat musuh meletakkannya di Dark Node.");
+                threatHunter.setDescription("Active Defense (PASSIVE): Beri 1 Damage ke Malware baru di lane ini.");
                 threatHunter.setType("PROGRAM");
                 threatHunter.setFaction("SYSADMIN");
                 threatHunter.setAtk(3);
@@ -347,7 +341,7 @@ public class DataSeeder {
                 sandbox.setId("prog_16");
                 sandbox.setName("Sandbox Environment");
                 sandbox.setCost(2);
-                sandbox.setDescription("Isolation (PASSIVE): Malware yang berhadapan dan menyerang kartu ini kehilangan efek Pasif-nya untuk sementara waktu.");
+                sandbox.setDescription("Isolation (PASSIVE): Malware yang menyerang kartu ini kehilangan efek Pasif.");
                 sandbox.setType("PROGRAM");
                 sandbox.setFaction("SYSADMIN");
                 sandbox.setAtk(0);
@@ -359,7 +353,7 @@ public class DataSeeder {
                 ransomware.setId("malw_13");
                 ransomware.setName("Ransomware Beast");
                 ransomware.setCost(4);
-                ransomware.setDescription("Encrypt (EXECUTE/FLOOP): Mengunci (Stun) Program musuh di depannya selama 1 giliran.");
+                ransomware.setDescription("Encrypt (EXECUTE): Stun Program musuh di depan selama 1 giliran.");
                 ransomware.setType("MALWARE");
                 ransomware.setFaction("OMEGA");
                 ransomware.setAtk(3);
@@ -370,7 +364,7 @@ public class DataSeeder {
                 trojan.setId("malw_14");
                 trojan.setName("Trojan Knight");
                 trojan.setCost(3);
-                trojan.setDescription("Backdoor Breach (PASSIVE): Saat hancur, munculkan \"Worm Token\" (1 ATK/1 HP) di posisinya.");
+                trojan.setDescription("Backdoor Breach (PASSIVE): Saat hancur, munculkan \"Worm Token\" (1 ATK/1 HP) di sini.");
                 trojan.setType("MALWARE");
                 trojan.setFaction("OMEGA");
                 trojan.setAtk(2);
@@ -381,7 +375,7 @@ public class DataSeeder {
                 c2server.setId("malw_15");
                 c2server.setName("C2 Server");
                 c2server.setCost(4);
-                c2server.setDescription("Execute Order (EXECUTE/FLOOP): Miringkan kartu ini untuk memberikan +1 ATK kepada semua Malware kawan di papan pada giliran ini.");
+                c2server.setDescription("Execute Order (EXECUTE): +1 ATK untuk semua Malware kawan giliran ini.");
                 c2server.setType("MALWARE");
                 c2server.setFaction("OMEGA");
                 c2server.setAtk(1);
@@ -392,13 +386,12 @@ public class DataSeeder {
                 polyVirus.setId("malw_16");
                 polyVirus.setName("Polymorphic Virus");
                 polyVirus.setCost(3);
-                polyVirus.setDescription("Mutating Code (PASSIVE): Setiap awal giliran, jika kartu ini tidak dalam kondisi HP penuh, pulihkan 1 HP.");
+                polyVirus.setDescription("Mutating Code (PASSIVE): Pulihkan 1 HP di awal giliran (jika HP tidak penuh).");
                 polyVirus.setType("MALWARE");
                 polyVirus.setFaction("OMEGA");
                 polyVirus.setAtk(2);
                 polyVirus.setHp(3);
                 polyVirus.setValidLane("Dark Node");
-
 
 // ==========================================
 // WILDCARD CARDS (ANY LANE)
@@ -409,7 +402,7 @@ public class DataSeeder {
                 sniffer.setId("prog_17");
                 sniffer.setName("Packet Sniffer Hound");
                 sniffer.setCost(1);
-                sniffer.setDescription("Data Intercept (EXECUTE/FLOOP): Intip 1 kartu teratas deck musuh. Jika itu Script, Hound mendapat +1 ATK permanen.");
+                sniffer.setDescription("Data Intercept (EXECUTE): Intip kartu teratas deck musuh. Jika Script, +1 ATK permanen.");
                 sniffer.setType("PROGRAM");
                 sniffer.setFaction("SYSADMIN");
                 sniffer.setAtk(1);
@@ -420,7 +413,7 @@ public class DataSeeder {
                 emergencyPatch.setId("prog_18");
                 emergencyPatch.setName("Emergency Patch Unit");
                 emergencyPatch.setCost(2);
-                emergencyPatch.setDescription("Remote Hotfix (PASSIVE): Saat diletakkan ke papan, pilih 1 Program kawan di Lane mana saja. Pulihkan 2 HP program tersebut.");
+                emergencyPatch.setDescription("Remote Hotfix (PASSIVE): Saat ditaruh, pulihkan 2 HP 1 Program kawan (bebas lane).");
                 emergencyPatch.setType("PROGRAM");
                 emergencyPatch.setFaction("SYSADMIN");
                 emergencyPatch.setAtk(1);
@@ -431,7 +424,7 @@ public class DataSeeder {
                 mobileProxy.setId("prog_19");
                 mobileProxy.setName("Mobile Proxy");
                 mobileProxy.setCost(2);
-                mobileProxy.setDescription("Redirection (PASSIVE): Saat kartu ini diserang, musuh yang menyerangnya terkena debuff -1 ATK pada giliran berikutnya.");
+                mobileProxy.setDescription("Redirection (PASSIVE): Penyerang kartu ini kena debuff -1 ATK giliran depan.");
                 mobileProxy.setType("PROGRAM");
                 mobileProxy.setFaction("SYSADMIN");
                 mobileProxy.setAtk(0);
@@ -442,7 +435,7 @@ public class DataSeeder {
                 sysadminAvatar.setId("prog_20");
                 sysadminAvatar.setName("System Admin Avatar");
                 sysadminAvatar.setCost(4);
-                sysadminAvatar.setDescription("Admin Command (EXECUTE/FLOOP): Miringkan kartu ini, lalu pilih 1 Program kawan di Lane mana saja. Program tersebut mendapatkan +2 ATK dan +1 HP hingga akhir giliran.");
+                sysadminAvatar.setDescription("Admin Command (EXECUTE): Pilih 1 Program kawan: dapat +2 ATK & +1 HP giliran ini.");
                 sysadminAvatar.setType("PROGRAM");
                 sysadminAvatar.setFaction("SYSADMIN");
                 sysadminAvatar.setAtk(3);
@@ -454,7 +447,7 @@ public class DataSeeder {
                 botnet.setId("malw_17");
                 botnet.setName("Botnet Node");
                 botnet.setCost(1);
-                botnet.setDescription("Distributed Power (PASSIVE): Mendapat stat +1 ATK untuk setiap Botnet Node lain yang aktif di papan permainan.");
+                botnet.setDescription("Distributed Power (PASSIVE): +1 ATK per Botnet Node kawan di papan.");
                 botnet.setType("MALWARE");
                 botnet.setFaction("OMEGA");
                 botnet.setAtk(1);
@@ -465,7 +458,7 @@ public class DataSeeder {
                 adware.setId("malw_18");
                 adware.setName("Adware Drone");
                 adware.setCost(1);
-                adware.setDescription("Pop-up (PASSIVE): Jika kartu ini menyerang HP Sysadmin, O.M.E.G.A akan menarik (draw) 1 kartu tambahan.");
+                adware.setDescription("Pop-up (PASSIVE): Draw 1 kartu tambahan tiap kali serang HP Sysadmin.");
                 adware.setType("MALWARE");
                 adware.setFaction("OMEGA");
                 adware.setAtk(1);
@@ -476,7 +469,7 @@ public class DataSeeder {
                 zeroDay.setId("malw_19");
                 zeroDay.setName("Zero-Day Scout");
                 zeroDay.setCost(2);
-                zeroDay.setDescription("Scan Vulnerability (EXECUTE/FLOOP): Miringkan kartu ini untuk melihat 2 kartu teratas dari deck Sysadmin. Kamu bisa membuang salah satunya ke discard pile.");
+                zeroDay.setDescription("Scan Vulnerability (EXECUTE): Intip 2 kartu atas deck musuh, buang 1 ke discard.");
                 zeroDay.setType("MALWARE");
                 zeroDay.setFaction("OMEGA");
                 zeroDay.setAtk(2);
@@ -485,15 +478,14 @@ public class DataSeeder {
 
                 CardEntity apt = new CardEntity();
                 apt.setId("malw_20");
-                apt.setName("Advanced Persistent Threat (APT)");
+                apt.setName("Advanced Persistent Threat");
                 apt.setCost(4);
-                apt.setDescription("Persistence (PASSIVE): Jika kartu ini hancur, ia tidak masuk ke discard pile tapi kembali ke tangan pemiliknya (namun biayanya naik menjadi +1 RAM).");
+                apt.setDescription("Persistence (PASSIVE): Saat hancur, kembali ke tangan tapi RAM Cost naik +1.");
                 apt.setType("MALWARE");
                 apt.setFaction("OMEGA");
                 apt.setAtk(3);
                 apt.setHp(3);
                 apt.setValidLane("ANY_LANE");
-
 
 // ==========================================
 // SCRIPTS / SPELLS (ANY LANE, 0 ATK/HP)
@@ -504,7 +496,7 @@ public class DataSeeder {
                 sysPatch.setId("scpt_01");
                 sysPatch.setName("System Patch");
                 sysPatch.setCost(2);
-                sysPatch.setDescription("Efek Eksekusi: Pilih 1 Program kawan di Lane mana saja. Berikan +2 HP dan +1 ATK secara permanen.");
+                sysPatch.setDescription("Pilih 1 Program kawan di lane mana saja: Dapat +2 HP & +1 ATK permanen.");
                 sysPatch.setType("SCRIPT");
                 sysPatch.setFaction("SYSADMIN");
                 sysPatch.setAtk(0);
@@ -515,7 +507,7 @@ public class DataSeeder {
                 pingReq.setId("scpt_02");
                 pingReq.setName("Ping Request");
                 pingReq.setCost(1);
-                pingReq.setDescription("Efek Eksekusi: Berikan 2 Damage secara langsung kepada 1 Malware target di Lane mana saja.");
+                pingReq.setDescription("Beri 2 Damage langsung ke 1 Malware target.");
                 pingReq.setType("SCRIPT");
                 pingReq.setFaction("SYSADMIN");
                 pingReq.setAtk(0);
@@ -526,7 +518,7 @@ public class DataSeeder {
                 clearCache.setId("scpt_03");
                 clearCache.setName("Clear Cache");
                 clearCache.setCost(2);
-                clearCache.setDescription("Efek Eksekusi: Hapus semua efek negatif (seperti Stun atau Debuff stat) dari semua Program kawan yang ada di papan.");
+                clearCache.setDescription("Hapus semua efek negatif atau Stun dari semua Program kawan.");
                 clearCache.setType("SCRIPT");
                 clearCache.setFaction("SYSADMIN");
                 clearCache.setAtk(0);
@@ -537,7 +529,7 @@ public class DataSeeder {
                 dpi.setId("scpt_04");
                 dpi.setName("Deep Packet Inspection");
                 dpi.setCost(3);
-                dpi.setDescription("Efek Eksekusi: Analisis lalu lintas jaringan tingkat lanjut. Skrip ini menukarkan tempo serangan di giliran saat ini demi mengisi ulang sumber daya di tangan, mempersiapkan kombo kartu besar di giliran selanjutnya.");
+                dpi.setDescription("Tukar tempo giliran ini untuk mengisi resource: Draw 2 kartu ekstra.");
                 dpi.setType("SCRIPT");
                 dpi.setFaction("SYSADMIN");
                 dpi.setAtk(0);
@@ -549,7 +541,7 @@ public class DataSeeder {
                 zde.setId("scpt_05");
                 zde.setName("Zero-Day Exploit");
                 zde.setCost(3);
-                zde.setDescription("Efek Eksekusi: Hancurkan secara instan 1 Program musuh di Lane mana saja yang memiliki sisa HP 3 atau kurang.");
+                zde.setDescription("Hancurkan instan 1 Program musuh yang bersisa HP 3 atau kurang.");
                 zde.setType("SCRIPT");
                 zde.setFaction("OMEGA");
                 zde.setAtk(0);
@@ -560,7 +552,7 @@ public class DataSeeder {
                 phishing.setId("scpt_06");
                 phishing.setName("Phishing Campaign");
                 phishing.setCost(2);
-                phishing.setDescription("Efek Eksekusi: Paksa Sysadmin untuk membuang (discard) 1 kartu secara acak dari tangannya.");
+                phishing.setDescription("Paksa Sysadmin membuang (discard) 1 kartu secara acak dari tangannya.");
                 phishing.setType("SCRIPT");
                 phishing.setFaction("OMEGA");
                 phishing.setAtk(0);
@@ -571,7 +563,7 @@ public class DataSeeder {
                 forkBomb.setId("scpt_07");
                 forkBomb.setName("Fork Bomb");
                 forkBomb.setCost(4);
-                forkBomb.setDescription("Efek Eksekusi: Berikan 1 Damage kepada semua Program Sysadmin di papan. Jika ada Program musuh yang hancur karena efek ini, O.M.E.G.A mendapatkan kembali +1 RAM.");
+                forkBomb.setDescription("Beri 1 Damage ke SEMUA musuh. Dapatkan +1 RAM per musuh yang mati.");
                 forkBomb.setType("SCRIPT");
                 forkBomb.setFaction("OMEGA");
                 forkBomb.setAtk(0);
@@ -582,7 +574,7 @@ public class DataSeeder {
                 mitm.setId("scpt_08");
                 mitm.setName("Man-in-the-Middle");
                 mitm.setCost(2);
-                mitm.setDescription("Efek Eksekusi: Pilih 1 Program musuh. Program tersebut terkunci (Stun) dan tidak bisa melakukan serangan atau menggunakan kemampuan pada giliran berikutnya.");
+                mitm.setDescription("Stun 1 Program musuh (Tidak bisa Attack/EXECUTE giliran depan).");
                 mitm.setType("SCRIPT");
                 mitm.setFaction("OMEGA");
                 mitm.setAtk(0);
@@ -590,14 +582,13 @@ public class DataSeeder {
                 mitm.setValidLane("ANY_LANE");
 
                 cardRepository.saveAll(Arrays.asList(
-                 golem, paladin, guardian, mutex, worm, bootVirus, logicBomb, escalator,
-                 dataMiner, loadBalancer, backupServer, interruptHandler, wasp, cryptoJacker, exfiltrator, shadowInstance,
-                 ids, proxyShield, waf, portScanner, ddos, sqli, xss, pingOfDeath,
-                 honeypot, traceroute, threatHunter, sandbox, ransomware, trojan, c2server, polyVirus,
-                 sniffer, emergencyPatch, mobileProxy, sysadminAvatar, botnet, adware, zeroDay, apt,
-                 sysPatch, pingReq, clearCache, dpi, zde, phishing, forkBomb, mitm
-             ));
-
+                        golem, paladin, guardian, mutex, worm, bootVirus, logicBomb, escalator,
+                        dataMiner, loadBalancer, backupServer, interruptHandler, wasp, cryptoJacker, exfiltrator, shadowInstance,
+                        ids, proxyShield, waf, portScanner, ddos, sqli, xss, pingOfDeath,
+                        honeypot, traceroute, threatHunter, sandbox, ransomware, trojan, c2server, polyVirus,
+                        sniffer, emergencyPatch, mobileProxy, sysadminAvatar, botnet, adware, zeroDay, apt,
+                        sysPatch, pingReq, clearCache, dpi, zde, phishing, forkBomb, mitm
+                ));
 
                 System.out.println("Data kartu berhasil disuntikkan!");
             } else {

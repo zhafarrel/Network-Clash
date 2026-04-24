@@ -5,6 +5,7 @@ import com.NCFrontend.models.ProgramData;
 import com.NCFrontend.models.ScriptData;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Batch;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
@@ -20,16 +21,28 @@ public class CardActor extends Group {
     private Image illustration;
     private Image frame;
     private BitmapFont font;
+    private static Texture executeBtnTex;
 
     // VARIABEL BARU: Mengecek apakah kartu di tangan (buka) atau di deck (tutup)
     public boolean isFaceUp = true;
+    public boolean isFlooped = false;
+    public boolean isOnBoard = false;
+
 
     public CardActor(BaseCard data, Texture illustrationTex) {
         this.data = data;
 
         // 1. Ukuran kartu proporsional
         this.setSize(210, 300);
+        this.setOrigin(getWidth() / 2f, getHeight() / 2f);
 
+        if (executeBtnTex == null) {
+            Pixmap pix = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+            pix.setColor(Color.ORANGE);
+            pix.fill();
+            executeBtnTex = new Texture(pix);
+            pix.dispose();
+        }
         // 2. Setup ILUSTRASI (Lapisan Bawah)
         illustration = new Image(illustrationTex);
         illustration.setSize(getWidth(), getHeight());
@@ -67,95 +80,114 @@ public class CardActor extends Group {
 
     @Override
     public void draw(Batch batch, float parentAlpha) {
-        // --- EFEK KARTU MENGHADAP BELAKANG ---
         if (!isFaceUp) {
-            illustration.setColor(0.1f, 0.1f, 0.1f, 1f); // Dibuat sangat gelap
+            illustration.setColor(0.1f, 0.1f, 0.1f, 1f);
             if (frame != null) frame.setColor(0.4f, 0.4f, 0.4f, 1f);
         } else {
-            illustration.setColor(0.3f, 0.3f, 0.3f, 1f); // Warna normal
+            illustration.setColor(0.3f, 0.3f, 0.3f, 1f);
             if (frame != null) frame.setColor(1f, 1f, 1f, 1f);
         }
 
-        // 1. Gambar background texture (otomatis di-scale oleh LibGDX)
         super.draw(batch, parentAlpha);
-
-        // JIKA KARTU MENGHADAP BELAKANG (DI DECK), JANGAN GAMBAR TEKS/STAT!
         if (!isFaceUp) return;
 
-        // --- 2. MAGIC TRICK: MATRIX TRANSFORM ---
-        batch.flush(); // Wajib dipanggil sebelum mengubah matrix
+        batch.flush();
         Matrix4 oldMatrix = batch.getTransformMatrix().cpy();
 
         Matrix4 newMatrix = new Matrix4(oldMatrix);
-        // Sesuaikan kanvas dengan posisi, origin, dan scale kartu saat ini
         newMatrix.translate(getX() + getOriginX(), getY() + getOriginY(), 0);
         newMatrix.scale(getScaleX(), getScaleY(), 1.0f);
         newMatrix.rotate(0, 0, 1, getRotation());
         newMatrix.translate(-getOriginX(), -getOriginY(), 0);
-
         batch.setTransformMatrix(newMatrix);
-        // ----------------------------------------
 
-        // SEKARANG KITA GAMBAR TEKS SEOLAH-OLAH KARTU UKURAN 1.0 (NORMAL)
         float w = getWidth();
         float h = getHeight();
-        float originalScaleX = font.getData().scaleX;
-        float originalScaleY = font.getData().scaleY;
 
-        // A. RAM COST (Kiri Atas)
-        font.setColor(Color.CYAN);
-        font.draw(batch, String.valueOf(data.cost), 18, h - 15);
+        // --- PENGAMAN MUTLAK FONT (Mencegah Monster Teks) ---
+        float oldScaleX = font.getData().scaleX;
+        float oldScaleY = font.getData().scaleY;
 
-        // B. NAMA KARTU (Tengah Atas)
-        font.setColor(Color.WHITE);
-        font.draw(batch, data.name.toUpperCase(), 0, h - 15, w, Align.center, false);
+        try {
+            // A. RAM COST
+            font.getData().setScale(1.0f);
+            font.setColor(Color.CYAN);
+            font.draw(batch, String.valueOf(data.cost), 18, h - 15);
 
-        // C. DESKRIPSI (Tengah)
-        font.setColor(Color.WHITE); // FIX: Pastikan warna putih, bukan cyan!
-        font.getData().setScale(1f); // Skala standar agar teks rapi
+            // B. TIPE KARTU
+            String cardType = "UNKNOWN";
+            if (data instanceof ScriptData) cardType = "SCRIPT";
+            else if (data instanceof ProgramData) cardType = "PROGRAM";
+            else cardType = "MALWARE";
 
-        // Ambil deskripsi secara aman dari BaseCard (atau cast jika perlu)
-        String desc = data.description;
+            font.setColor(Color.LIGHT_GRAY);
+            font.getData().setScale(0.85f);
+            font.draw(batch, cardType, 0, h - 15, w, Align.center, false);
 
-        if (desc != null && !desc.isEmpty()) {
-            // Koordinat statis yang pasti rapi di ukuran normal
-            font.draw(batch, desc, 25, 115, w - 50, Align.center, true);
-        }
+            // C. NAMA KARTU
+            font.setColor(Color.YELLOW);
+            font.getData().setScale(1.0f);
+            font.draw(batch, data.name.toUpperCase(), 0, 155, w, Align.center, false);
 
-        // D. STATISTIK ATK & HP
-        font.getData().setScale(1.1f);
+            // D. DESKRIPSI
+            font.setColor(Color.WHITE);
+            font.getData().setScale(0.8f);
+            String desc = data.description;
+            if (desc != null && !desc.isEmpty()) {
+                font.draw(batch, desc, 25, 125, w - 50, Align.center, true);
+            }
 
-        // FIX: Cek baik ProgramData maupun MalwareData
-        int atk = -1, hp = -1;
-        boolean hasStats = false;
+            // E. VISUAL TOMBOL EXECUTE SOLID
+            boolean hasExecute = desc != null && desc.contains("(EXECUTE)");
 
-        if (data instanceof ProgramData) {
-            atk = ((ProgramData) data).atk;
-            hp = ((ProgramData) data).hp;
-            hasStats = true;
-        } else if (data.getClass().getSimpleName().equals("MalwareData")) {
-            // Menggunakan reflection/cast alternatif untuk menangkap class Malware-mu
-            try {
-                atk = (int) data.getClass().getField("atk").get(data);
-                hp = (int) data.getClass().getField("hp").get(data);
+            // SYARAT BARU: Harus sudah di board (isOnBoard), punya efek execute, dan belum dipakai (!isFlooped)
+            if (isOnBoard && hasExecute && !isFlooped) {
+                float btnW = 100;
+                float btnH = 26;
+                float btnX = (w - btnW) / 2f;
+                float btnY = 65;
+
+                batch.setColor(Color.WHITE);
+                batch.draw(executeBtnTex, btnX, btnY, btnW, btnH);
+
+                font.getData().setScale(0.8f);
+                font.setColor(Color.BLACK);
+                font.draw(batch, "EXECUTE", 0, btnY + 20, w, Align.center, false);
+            }
+
+            // F. STATISTIK ATK & HP
+            font.getData().setScale(1.1f);
+            int atk = -1, hp = -1;
+            boolean hasStats = false;
+
+            if (data instanceof ProgramData) {
+                atk = ((ProgramData) data).atk;
+                hp = ((ProgramData) data).hp;
                 hasStats = true;
-            } catch (Exception e) {}
+            } else if (data.getClass().getSimpleName().equals("MalwareData")) {
+                try {
+                    atk = (int) data.getClass().getField("atk").get(data);
+                    hp = (int) data.getClass().getField("hp").get(data);
+                    hasStats = true;
+                } catch (Exception e) {}
+            }
+
+            if (hasStats) {
+                font.setColor(Color.ORANGE);
+                font.draw(batch, String.valueOf(atk), 25, 35);
+                font.setColor(Color.LIME);
+                font.draw(batch, String.valueOf(hp), w - 55, 35);
+            }
+
+        } finally {
+            // --- INI KUNCINYA: Selalu kembalikan ukuran font aslinya apapun yang terjadi! ---
+            font.getData().setScale(oldScaleX, oldScaleY);
         }
 
-        // Gambar stat jika kartu tersebut punya ATK dan HP
-        if (hasStats) {
-            font.setColor(Color.ORANGE);
-            font.draw(batch, String.valueOf(atk), 25, 35);
-
-            font.setColor(Color.LIME);
-            font.draw(batch, String.valueOf(hp), w - 55, 35);
-        }
-
-        // --- 3. KEMBALIKAN KE KONDISI SEMULA ---
-        font.getData().setScale(originalScaleX, originalScaleY);
         batch.flush();
-        batch.setTransformMatrix(oldMatrix); // Reset kanvas untuk aktor lain
+        batch.setTransformMatrix(oldMatrix);
     }
+
     public BaseCard getData() {
         return data;
     }
