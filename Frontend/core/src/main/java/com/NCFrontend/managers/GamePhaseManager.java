@@ -59,13 +59,20 @@ public class GamePhaseManager {
     }
 
     public void endPlayerTurn() {
-        currentPhase = GamePhase.ENEMY_TURN;
-        screen.uiManager.updatePhaseLabel("GILIRAN: O.M.E.G.A", Color.RED);
+        screen.uiManager.updatePhaseLabel("BATTLE PHASE", Color.ORANGE);
 
-        // Panggil otak AI Musuh!
-        if (screen.enemyAI != null) {
-            screen.enemyAI.startTurn();
-        }
+        // Panggil Wasit untuk eksekusi serangan Player!
+        com.NCFrontend.logic.CombatResolver.resolveBoardCombat(screen, true, new Runnable() {
+            @Override
+            public void run() {
+                // Setelah selesai bertarung, baru ganti giliran ke OMEGA
+                currentPhase = GamePhase.ENEMY_TURN;
+                screen.uiManager.updatePhaseLabel("GILIRAN: O.M.E.G.A", Color.RED);
+                if (screen.enemyAI != null) {
+                    screen.enemyAI.startTurn();
+                }
+            }
+        });
     }
 
     // --- METHOD UNTUK MEMAKAI RAM ---

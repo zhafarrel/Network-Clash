@@ -4,6 +4,7 @@ import com.NCFrontend.screens.GameplayScreen;
 import com.NCFrontend.ui.CardActor;
 import com.NCFrontend.models.ScriptData;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.math.Interpolation;
 import com.badlogic.gdx.scenes.scene2d.actions.Actions;
 
@@ -103,9 +104,12 @@ public class EnemyAIManager {
     private void drawEnemyCard() {
         if (screen.enemyDeck.size > 0 && screen.enemyHand.size < 7) {
             CardActor card = screen.enemyDeck.pop();
-            card.setVisible(true); // Pastikan muncul
-            card.isFaceUp = false; // Telungkup di tangan
+            card.setVisible(true);
+            card.isFaceUp = false;
             screen.enemyHand.add(card);
+
+            // --- TAMBAHKAN BARIS INI: Beri sensor agar bisa di-inspect pemain ---
+            screen.interactionHandler.setupEnemyInspect(card);
 
             updateEnemyHandPositions();
             Gdx.app.log("AI", "Menarik kartu...");
@@ -167,16 +171,17 @@ public class EnemyAIManager {
     }
 
     private void finishAITurn() {
-        Gdx.app.log("AI", "=== Mengakhiri Giliran O.M.E.G.A ===");
-        screen.stage.addAction(Actions.sequence(
-            Actions.delay(1.0f),
-            Actions.run(new Runnable() {
-                @Override
-                public void run() {
-                    screen.phaseManager.startPlayerTurn();
-                }
-            })
-        ));
+        Gdx.app.log("AI", "=== Mengakhiri Fase Main O.M.E.G.A ===");
+        screen.uiManager.updatePhaseLabel("BATTLE PHASE", Color.ORANGE);
+
+        // Panggil wasit untuk serangan musuh
+        com.NCFrontend.logic.CombatResolver.resolveBoardCombat(screen, false, new Runnable() {
+            @Override
+            public void run() {
+                // Selesai bertarung, kembali ke giliranmu
+                screen.phaseManager.startPlayerTurn();
+            }
+        });
     }
 
     private void updateEnemyHandPositions() {

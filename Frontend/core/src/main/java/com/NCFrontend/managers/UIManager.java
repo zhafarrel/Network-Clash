@@ -24,6 +24,8 @@ public class UIManager {
     private Label phaseLabel;
     private Label ramLabel; // TAMBAHAN LABEL RAM
     public boolean isDialogOpen = false;
+    private Label playerHpLabel;
+    private Label enemyHpLabel;
 
     public UIManager(GameplayScreen screen) {
         this.screen = screen;
@@ -32,6 +34,17 @@ public class UIManager {
     public void setupUI() {
         float screenW = screen.stage.getViewport().getWorldWidth();
         float screenH = screen.stage.getViewport().getWorldHeight();
+
+        // --- UI KESEHATAN (HP) ---
+        playerHpLabel = new Label("HP: 50", new Label.LabelStyle(new BitmapFont(), Color.GREEN));
+        playerHpLabel.setFontScale(1.5f);
+        playerHpLabel.setPosition(screenW - 200, screenH - 160);
+        screen.stage.addActor(playerHpLabel);
+
+        enemyHpLabel = new Label("HP: 20", new Label.LabelStyle(new BitmapFont(), Color.RED));
+        enemyHpLabel.setFontScale(1.5f);
+        enemyHpLabel.setPosition(30, screenH - 160);
+        screen.stage.addActor(enemyHpLabel);
 
         deckCountLabel = new Label("0", new Label.LabelStyle(new BitmapFont(), Color.YELLOW));
         deckCountLabel.setFontScale(2.5f);
@@ -90,6 +103,90 @@ public class UIManager {
             ramLabel.setText("RAM: " + current + " / " + max);
         }
     }
+
+    public void updateHP() {
+        if (playerHpLabel != null) playerHpLabel.setText("HP: " + screen.playerHP);
+        if (enemyHpLabel != null) enemyHpLabel.setText("HP: " + screen.enemyHP);
+    }
+
+    public void showCardDetail(com.NCFrontend.models.BaseCard data) {
+        if (isDialogOpen) return;
+        isDialogOpen = true;
+
+        com.badlogic.gdx.scenes.scene2d.Group dialogGroup = new com.badlogic.gdx.scenes.scene2d.Group();
+
+        // 1. Background Gelap (Overlay)
+        Pixmap overlayPix = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+        overlayPix.setColor(new Color(0, 0, 0, 0.85f));
+        overlayPix.fill();
+        Image overlay = new Image(new Texture(overlayPix));
+        overlayPix.dispose();
+        overlay.setSize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        dialogGroup.addActor(overlay);
+
+        // 2. Kotak Panel Info
+        Pixmap boxPix = new Pixmap(400, 500, Pixmap.Format.RGBA8888);
+        boxPix.setColor(new Color(0.1f, 0.1f, 0.15f, 1f)); boxPix.fill();
+        boxPix.setColor(Color.CYAN); boxPix.drawRectangle(0, 0, 400, 500); // Border Cyan
+        Image box = new Image(new Texture(boxPix)); boxPix.dispose();
+        box.setPosition((Gdx.graphics.getWidth() - 400) / 2f, (Gdx.graphics.getHeight() - 500) / 2f);
+        dialogGroup.addActor(box);
+
+        // 3. Tulis Info Kartu
+        BitmapFont font = new BitmapFont();
+
+        font.getData().setScale(1.5f);
+        Label nameLbl = new Label(data.name.toUpperCase(), new Label.LabelStyle(font, Color.YELLOW));
+        nameLbl.setPosition(box.getX() + 30, box.getY() + 450);
+        dialogGroup.addActor(nameLbl);
+
+        font.getData().setScale(1.2f);
+        Label costLbl = new Label("RAM Cost: " + data.cost, new Label.LabelStyle(font, Color.CYAN));
+        costLbl.setPosition(box.getX() + 30, box.getY() + 400);
+        dialogGroup.addActor(costLbl);
+
+        String type = "MALWARE";
+        if (data instanceof com.NCFrontend.models.ProgramData) type = "PROGRAM";
+        else if (data instanceof com.NCFrontend.models.ScriptData) type = "SCRIPT";
+        Label typeLbl = new Label("Tipe: " + type, new Label.LabelStyle(font, Color.LIGHT_GRAY));
+        typeLbl.setPosition(box.getX() + 30, box.getY() + 360);
+        dialogGroup.addActor(typeLbl);
+
+        // Ambil stat dari CombatResolver (yang baru kita buat sebelumnya)
+        int atk = com.NCFrontend.logic.CombatResolver.getAtk(data);
+        int hp = com.NCFrontend.logic.CombatResolver.getHp(data);
+        if (atk > 0 || hp > 0) {
+            Label statLbl = new Label("ATK: " + atk + "   |   HP: " + hp, new Label.LabelStyle(font, Color.ORANGE));
+            statLbl.setPosition(box.getX() + 30, box.getY() + 320);
+            dialogGroup.addActor(statLbl);
+        }
+
+        // Deskripsi (Bungkus Teks agar tidak keluar kotak)
+        Label descLbl = new Label(data.description, new Label.LabelStyle(font, Color.WHITE));
+        descLbl.setWrap(true);
+        descLbl.setWidth(340);
+        descLbl.setPosition(box.getX() + 30, box.getY() + 200);
+        dialogGroup.addActor(descLbl);
+
+        // Petunjuk Tutup
+        Label closeLbl = new Label("[ KLIK DIMANA SAJA UNTUK TUTUP ]", new Label.LabelStyle(font, Color.GRAY));
+        closeLbl.setPosition(box.getX() + 40, box.getY() + 30);
+        dialogGroup.addActor(closeLbl);
+
+        screen.stage.addActor(dialogGroup);
+
+        // 4. Logika Menutup Jendela saat di-klik
+        ClickListener closeListener = new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                dialogGroup.remove();
+                isDialogOpen = false;
+            }
+        };
+        overlay.addListener(closeListener);
+        box.addListener(closeListener);
+    }
+
 
     public void showReplaceDialog(CardActor oldCard, CardActor newCard, String zoneName, Actor dropZone) {
         isDialogOpen = true;

@@ -35,6 +35,8 @@ public class GameplayScreen extends ScreenAdapter {
     public ObjectMap<String, CardActor> activeCards = new ObjectMap<>();
     public final int MAX_HAND_SIZE = 7;
     public CardActor dummyDeckVisual;
+    public int playerHP = 50;
+    public int enemyHP = 20;
 
     // --- PENYIMPANAN STATE/MEMORI DATA MUSUH (AI) ---
     public Array<CardActor> enemyDeck = new Array<>();

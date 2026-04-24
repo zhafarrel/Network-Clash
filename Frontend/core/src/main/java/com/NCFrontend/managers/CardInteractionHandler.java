@@ -77,6 +77,20 @@ public class CardInteractionHandler {
         });
     }
 
+    public void setupEnemyInspect(CardActor card) {
+        card.addListener(new InputListener() {
+            @Override
+            public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+                // Pemain hanya boleh melihat kartu musuh jika kartu itu sudah terbuka di meja (FaceUp)
+                if (card.isFaceUp) {
+                    screen.uiManager.showCardDetail(card.getData());
+                    return true;
+                }
+                return false;
+            }
+        });
+    }
+
     private void setupHoverEffect(CardActor card) {
         card.addListener(new InputListener() {
 
@@ -108,26 +122,30 @@ public class CardInteractionHandler {
 
             @Override
             public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
-                if (screen.phaseManager.currentPhase == GamePhaseManager.GamePhase.PLAYER_MAIN
-                    && !screen.hand.contains(card, true)
-                    && !card.isFlooped) {
+                // --- 1. KLIK KANAN: Langsung Inspect Detail ---
+                if (button == com.badlogic.gdx.Input.Buttons.RIGHT) {
+                    screen.uiManager.showCardDetail(card.getData());
+                    return true;
+                }
 
-                    boolean hasExecute = card.getData().description != null && card.getData().description.contains("(EXECUTE)");
+                // --- 2. KLIK KIRI: Execute atau Inspect ---
+                if (button == com.badlogic.gdx.Input.Buttons.LEFT) {
+                    // Jika kartu di meja pemain, belum miring, dan giliran pemain
+                    if (screen.phaseManager.currentPhase == GamePhaseManager.GamePhase.PLAYER_MAIN
+                        && !screen.hand.contains(card, true)
+                        && !card.isFlooped) {
 
-                    if (hasExecute) {
-                        if (y < 150) {
+                        boolean hasExecute = card.getData().description != null && card.getData().description.contains("(EXECUTE)");
+
+                        // Jika diklik di area BAWAH (y < 150) dan punya Execute -> Aktifkan Execute
+                        if (hasExecute && y < 150) {
                             card.isFlooped = true;
                             card.addAction(Actions.rotateTo(-90, 0.4f, Interpolation.smooth));
-
-                            String currentZone = "Unknown Zone";
-                            for (com.badlogic.gdx.utils.ObjectMap.Entry<String, CardActor> entry : screen.activeCards) {
-                                if (entry.value == card) {
-                                    currentZone = entry.key;
-                                    break;
-                                }
-                            }
-
-                            Gdx.app.log("Execute", "Kartu [" + card.getData().name + "] di-Execute di " + currentZone + "!");
+                            return true;
+                        }
+                        // Jika diklik area ATAS (ilustrasi) -> Inspect Detail
+                        else if (y >= 150) {
+                            screen.uiManager.showCardDetail(card.getData());
                             return true;
                         }
                     }
