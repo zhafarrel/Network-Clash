@@ -7,6 +7,7 @@ import com.NCFrontend.ui.CardActor;
 import com.NCFrontend.managers.GamePhaseManager;
 import com.NCFrontend.managers.UIManager;
 import com.NCFrontend.managers.CardInteractionHandler;
+import com.NCFrontend.models.PlayerData; // TAMBAHAN IMPORT MODEL
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.ScreenAdapter;
@@ -35,13 +36,17 @@ public class GameplayScreen extends ScreenAdapter {
     public ObjectMap<String, CardActor> activeCards = new ObjectMap<>();
     public final int MAX_HAND_SIZE = 7;
     public CardActor dummyDeckVisual;
-    public int playerHP = 50;
-    public int enemyHP = 20;
+
+    // MENGGANTI INTEGER DENGAN MODEL PLAYERDATA
+    public PlayerData playerProfile;
 
     // --- PENYIMPANAN STATE/MEMORI DATA MUSUH (AI) ---
     public Array<CardActor> enemyDeck = new Array<>();
     public Array<CardActor> enemyHand = new Array<>();
     public ObjectMap<String, CardActor> enemyActiveCards = new ObjectMap<>();
+
+    // MENGGANTI INTEGER DENGAN MODEL PLAYERDATA
+    public PlayerData enemyProfile;
 
     // --- PARA MANAGER ---
     public GamePhaseManager phaseManager;
@@ -52,6 +57,10 @@ public class GameplayScreen extends ScreenAdapter {
     public GameplayScreen() {
         stage = new Stage(new ScreenViewport());
         Gdx.input.setInputProcessor(stage);
+
+        // INISIALISASI PROFIL PEMAIN DAN MUSUH SAAT GAME DIMULAI (Darah Awal 50)
+        playerProfile = new PlayerData("Pemain 1", "Sysadmin", 50);
+        enemyProfile = new PlayerData("O.M.E.G.A AI", "OMEGA", 50);
 
         // Inisialisasi Manager
         phaseManager = new GamePhaseManager(this);
@@ -182,9 +191,6 @@ public class GameplayScreen extends ScreenAdapter {
         );
 
         activeCards.put(zoneName, card);
-
-        // (Catatan: Logika memunculkan tombol Execute sekarang diatur otomatis
-        // oleh isOnBoard di dalam method draw() milik CardActor.java)
     }
 
     // =====================================
@@ -193,12 +199,12 @@ public class GameplayScreen extends ScreenAdapter {
     private void smoothOpeningHand() {
         Array<CardActor> cost1Cards = new Array<>();
         Array<CardActor> cost2Cards = new Array<>();
-        Array<CardActor> expensiveCards = new Array<>(); // Cost 3 ke atas
+        Array<CardActor> expensiveCards = new Array<>();
 
-        // 1. Pisahkan kartu berdasarkan RAM Cost
         for (CardActor card : deck) {
-            int cost = card.getData().cost;
-            if (cost <= 1) { // Menangkap cost 0 (jika ada script gratis) dan 1
+            // Kita sudah update model sehingga manggil ramCost bukan cost
+            int cost = card.getData().ramCost;
+            if (cost <= 1) {
                 cost1Cards.add(card);
             } else if (cost == 2) {
                 cost2Cards.add(card);
@@ -207,14 +213,12 @@ public class GameplayScreen extends ScreenAdapter {
             }
         }
 
-        // Acak masing-masing kelompok
         cost1Cards.shuffle();
         cost2Cards.shuffle();
         expensiveCards.shuffle();
 
         Array<CardActor> newDeck = new Array<>();
 
-        // 2. Susun "Top Deck" (Kartu yang akan ditarik pertama kali)
         for (int i = 0; i < 2; i++) {
             if (cost1Cards.size > 0) newDeck.add(cost1Cards.pop());
         }
@@ -222,27 +226,20 @@ public class GameplayScreen extends ScreenAdapter {
             if (cost2Cards.size > 0) newDeck.add(cost2Cards.pop());
         }
 
-        // Penuhi slot jika kartu 1 atau 2 kurang
         while (newDeck.size < 4 && (cost1Cards.size > 0 || cost2Cards.size > 0)) {
             if (cost1Cards.size > 0) newDeck.add(cost1Cards.pop());
             else if (cost2Cards.size > 0) newDeck.add(cost2Cards.pop());
         }
 
-        // 3. Masukkan sisa kartu menjadi satu tumpukan lalu acak
         Array<CardActor> remainingCards = new Array<>();
         remainingCards.addAll(cost1Cards);
         remainingCards.addAll(cost2Cards);
         remainingCards.addAll(expensiveCards);
         remainingCards.shuffle();
 
-        // 4. Gabungkan sisa kartu ke bawah "Top Deck"
         newDeck.addAll(remainingCards);
-
-        // Membalik urutan newDeck agar "Top Deck" berada di akhir array
-        // (karena Array.pop() mengambil dari indeks terakhir)
         newDeck.reverse();
 
-        // 5. Timpa deck lama dengan deck yang sudah disempurnakan
         deck.clear();
         deck.addAll(newDeck);
 

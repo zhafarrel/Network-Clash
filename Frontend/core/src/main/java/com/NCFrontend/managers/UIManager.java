@@ -16,13 +16,12 @@ import com.badlogic.gdx.scenes.scene2d.actions.Actions;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
-import com.badlogic.gdx.utils.Align;
 
 public class UIManager {
     private GameplayScreen screen;
     private Label deckCountLabel;
     private Label phaseLabel;
-    private Label ramLabel; // TAMBAHAN LABEL RAM
+    private Label ramLabel;
     public boolean isDialogOpen = false;
     private Label playerHpLabel;
     private Label enemyHpLabel;
@@ -36,12 +35,13 @@ public class UIManager {
         float screenH = screen.stage.getViewport().getWorldHeight();
 
         // --- UI KESEHATAN (HP) ---
-        playerHpLabel = new Label("HP: 50", new Label.LabelStyle(new BitmapFont(), Color.GREEN));
+        // Kita menggunakan model profil dari screen
+        playerHpLabel = new Label("HP: " + screen.playerProfile.hp, new Label.LabelStyle(new BitmapFont(), Color.GREEN));
         playerHpLabel.setFontScale(1.5f);
         playerHpLabel.setPosition(screenW - 200, screenH - 160);
         screen.stage.addActor(playerHpLabel);
 
-        enemyHpLabel = new Label("HP: 20", new Label.LabelStyle(new BitmapFont(), Color.RED));
+        enemyHpLabel = new Label("HP: " + screen.enemyProfile.hp, new Label.LabelStyle(new BitmapFont(), Color.RED));
         enemyHpLabel.setFontScale(1.5f);
         enemyHpLabel.setPosition(30, screenH - 160);
         screen.stage.addActor(enemyHpLabel);
@@ -57,7 +57,8 @@ public class UIManager {
         screen.stage.addActor(phaseLabel);
 
         // --- RENDER LABEL RAM (Kanan Atas) ---
-        ramLabel = new Label("RAM: 0/0", new Label.LabelStyle(new BitmapFont(), Color.GREEN));
+        // Ambil RAM dari profil pemain
+        ramLabel = new Label("RAM: " + screen.playerProfile.currentRam + " / " + screen.playerProfile.maxRam, new Label.LabelStyle(new BitmapFont(), Color.GREEN));
         ramLabel.setFontScale(1.8f);
         ramLabel.setPosition(screenW - 200, screenH - 120);
         screen.stage.addActor(ramLabel);
@@ -104,18 +105,18 @@ public class UIManager {
         }
     }
 
+    // --- PERBAIKAN FUNGSI UPDATE HP ---
     public void updateHP() {
-        if (playerHpLabel != null) playerHpLabel.setText("HP: " + screen.playerHP);
-        if (enemyHpLabel != null) enemyHpLabel.setText("HP: " + screen.enemyHP);
+        if (playerHpLabel != null) playerHpLabel.setText("HP: " + screen.playerProfile.hp);
+        if (enemyHpLabel != null) enemyHpLabel.setText("HP: " + screen.enemyProfile.hp);
     }
 
     public void showCardDetail(com.NCFrontend.models.BaseCard data) {
         if (isDialogOpen) return;
         isDialogOpen = true;
 
-        com.badlogic.gdx.scenes.scene2d.Group dialogGroup = new com.badlogic.gdx.scenes.scene2d.Group();
+        Group dialogGroup = new Group();
 
-        // 1. Background Gelap (Overlay)
         Pixmap overlayPix = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
         overlayPix.setColor(new Color(0, 0, 0, 0.85f));
         overlayPix.fill();
@@ -124,15 +125,13 @@ public class UIManager {
         overlay.setSize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         dialogGroup.addActor(overlay);
 
-        // 2. Kotak Panel Info
         Pixmap boxPix = new Pixmap(400, 500, Pixmap.Format.RGBA8888);
         boxPix.setColor(new Color(0.1f, 0.1f, 0.15f, 1f)); boxPix.fill();
-        boxPix.setColor(Color.CYAN); boxPix.drawRectangle(0, 0, 400, 500); // Border Cyan
+        boxPix.setColor(Color.CYAN); boxPix.drawRectangle(0, 0, 400, 500);
         Image box = new Image(new Texture(boxPix)); boxPix.dispose();
         box.setPosition((Gdx.graphics.getWidth() - 400) / 2f, (Gdx.graphics.getHeight() - 500) / 2f);
         dialogGroup.addActor(box);
 
-        // 3. Tulis Info Kartu
         BitmapFont font = new BitmapFont();
 
         font.getData().setScale(1.5f);
@@ -141,18 +140,18 @@ public class UIManager {
         dialogGroup.addActor(nameLbl);
 
         font.getData().setScale(1.2f);
-        Label costLbl = new Label("RAM Cost: " + data.cost, new Label.LabelStyle(font, Color.CYAN));
+        Label costLbl = new Label("RAM Cost: " + data.ramCost, new Label.LabelStyle(font, Color.CYAN));
         costLbl.setPosition(box.getX() + 30, box.getY() + 400);
         dialogGroup.addActor(costLbl);
 
         String type = "MALWARE";
         if (data instanceof com.NCFrontend.models.ProgramData) type = "PROGRAM";
         else if (data instanceof com.NCFrontend.models.ScriptData) type = "SCRIPT";
+
         Label typeLbl = new Label("Tipe: " + type, new Label.LabelStyle(font, Color.LIGHT_GRAY));
         typeLbl.setPosition(box.getX() + 30, box.getY() + 360);
         dialogGroup.addActor(typeLbl);
 
-        // Ambil stat dari CombatResolver (yang baru kita buat sebelumnya)
         int atk = com.NCFrontend.logic.CombatResolver.getAtk(data);
         int hp = com.NCFrontend.logic.CombatResolver.getHp(data);
         if (atk > 0 || hp > 0) {
@@ -161,21 +160,18 @@ public class UIManager {
             dialogGroup.addActor(statLbl);
         }
 
-        // Deskripsi (Bungkus Teks agar tidak keluar kotak)
         Label descLbl = new Label(data.description, new Label.LabelStyle(font, Color.WHITE));
         descLbl.setWrap(true);
         descLbl.setWidth(340);
         descLbl.setPosition(box.getX() + 30, box.getY() + 200);
         dialogGroup.addActor(descLbl);
 
-        // Petunjuk Tutup
         Label closeLbl = new Label("[ KLIK DIMANA SAJA UNTUK TUTUP ]", new Label.LabelStyle(font, Color.GRAY));
         closeLbl.setPosition(box.getX() + 40, box.getY() + 30);
         dialogGroup.addActor(closeLbl);
 
         screen.stage.addActor(dialogGroup);
 
-        // 4. Logika Menutup Jendela saat di-klik
         ClickListener closeListener = new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
@@ -186,7 +182,6 @@ public class UIManager {
         overlay.addListener(closeListener);
         box.addListener(closeListener);
     }
-
 
     public void showReplaceDialog(CardActor oldCard, CardActor newCard, String zoneName, Actor dropZone) {
         isDialogOpen = true;
@@ -231,7 +226,7 @@ public class UIManager {
                 isDialogOpen = false;
 
                 // --- POTONG RAM KARENA PEMAIN SETUJU ---
-                screen.phaseManager.useRam(newCard.getData().cost);
+                screen.phaseManager.useRam(newCard.getData().ramCost);
 
                 screen.hand.removeValue(newCard, true);
                 screen.updateHandPositions();

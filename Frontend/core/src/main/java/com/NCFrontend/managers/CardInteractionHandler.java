@@ -28,7 +28,6 @@ public class CardInteractionHandler {
     }
 
     public void setupZonesAndButtons() {
-        // Hanya memanggil drop zone. Tombol Execute fisik sudah dihapus.
         createDropZone("Localhost", 300, 280, 175, 230);
         createDropZone("Cloud Storage", 700, 280, 175, 230);
         createDropZone("DMZ", 1100, 280, 175, 230);
@@ -44,13 +43,14 @@ public class CardInteractionHandler {
                 if (screen.phaseManager.currentPhase != GamePhaseManager.GamePhase.PLAYER_MAIN || !screen.hand.contains(visualCard, true)) return null;
 
                 // --- CEK RAM: BISA DITARIK ATAU TIDAK ---
-                if (screen.phaseManager.currentRam < visualCard.getData().cost) {
+                // Menggunakan model playerProfile yang baru
+                if (screen.playerProfile.currentRam < visualCard.getData().ramCost) {
                     visualCard.addAction(Actions.sequence(
                         Actions.moveBy(15, 0, 0.05f),
                         Actions.moveBy(-30, 0, 0.05f),
                         Actions.moveBy(15, 0, 0.05f)
                     ));
-                    return null; // Gagal Drag!
+                    return null; // Gagal Drag karena RAM tidak cukup!
                 }
 
                 DragAndDrop.Payload payload = new DragAndDrop.Payload();
@@ -81,7 +81,6 @@ public class CardInteractionHandler {
         card.addListener(new InputListener() {
             @Override
             public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
-                // Pemain hanya boleh melihat kartu musuh jika kartu itu sudah terbuka di meja (FaceUp)
                 if (card.isFaceUp) {
                     screen.uiManager.showCardDetail(card.getData());
                     return true;
@@ -122,28 +121,23 @@ public class CardInteractionHandler {
 
             @Override
             public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
-                // --- 1. KLIK KANAN: Langsung Inspect Detail ---
                 if (button == com.badlogic.gdx.Input.Buttons.RIGHT) {
                     screen.uiManager.showCardDetail(card.getData());
                     return true;
                 }
 
-                // --- 2. KLIK KIRI: Execute atau Inspect ---
                 if (button == com.badlogic.gdx.Input.Buttons.LEFT) {
-                    // Jika kartu di meja pemain, belum miring, dan giliran pemain
                     if (screen.phaseManager.currentPhase == GamePhaseManager.GamePhase.PLAYER_MAIN
                         && !screen.hand.contains(card, true)
                         && !card.isFlooped) {
 
                         boolean hasExecute = card.getData().description != null && card.getData().description.contains("(EXECUTE)");
 
-                        // Jika diklik di area BAWAH (y < 150) dan punya Execute -> Aktifkan Execute
                         if (hasExecute && y < 150) {
                             card.isFlooped = true;
                             card.addAction(Actions.rotateTo(-90, 0.4f, Interpolation.smooth));
                             return true;
                         }
-                        // Jika diklik area ATAS (ilustrasi) -> Inspect Detail
                         else if (y >= 150) {
                             screen.uiManager.showCardDetail(card.getData());
                             return true;
@@ -163,19 +157,34 @@ public class CardInteractionHandler {
         screen.stage.addActor(dropZone);
 
         dragAndDrop.addTarget(new DragAndDrop.Target(dropZone) {
+
             @Override
             public boolean drag(DragAndDrop.Source source, DragAndDrop.Payload payload, float x, float y, int pointer) {
                 CardActor card = (CardActor) payload.getObject();
                 BaseCard cardData = card.getData();
-                String cardLane = cardData.validLane;
-                if (cardLane != null && (zoneName.equalsIgnoreCase(cardLane) || cardLane.equalsIgnoreCase("ANY_LANE") || cardData instanceof ScriptData)) {
+
+                // 1. Script/Spell bisa di-drop di mana saja (Warnanya Cyan)
+                if (cardData instanceof ScriptData) {
                     getActor().setColor(new Color(0, 1, 1, 0.6f));
                     return true;
                 }
+
+                // 2. Program/Malware harus cek validLane-nya
+                String cardLane = cardData.validLane;
+                if (cardLane == null || cardLane.equalsIgnoreCase("ANY_LANE") || zoneName.equalsIgnoreCase(cardLane)) {
+                    getActor().setColor(new Color(0, 1, 0, 0.6f)); // Valid (Hijau)
+                    return true;
+                }
+
+                // Tidak Valid (Merah)
                 getActor().setColor(new Color(1, 0, 0, 0.6f));
                 return false;
             }
-            @Override public void reset(DragAndDrop.Source source, DragAndDrop.Payload payload) { getActor().setColor(Color.WHITE); }
+
+            @Override
+            public void reset(DragAndDrop.Source source, DragAndDrop.Payload payload) {
+                getActor().setColor(new Color(0, 1, 0, 0.3f)); // Kembalikan ke warna default zona
+            }
 
             @Override
             public void drop(DragAndDrop.Source source, DragAndDrop.Payload payload, float x, float y, int pointer) {
@@ -184,13 +193,14 @@ public class CardInteractionHandler {
 
                 // 1. KARTU SCRIPT
                 if (cardData instanceof ScriptData) {
-                    screen.phaseManager.useRam(cardData.cost);
+                    screen.phaseManager.useRam(cardData.ramCost);
                     screen.hand.removeValue(newCard, true);
                     screen.updateHandPositions();
                     newCard.addAction(Actions.sequence(
                         Actions.parallel(Actions.scaleTo(0.1f, 0.1f, 0.3f), Actions.fadeOut(0.3f)),
                         Actions.removeActor()
                     ));
+                    // TODO: Panggil efek Script di sini nantinya!
                     return;
                 }
 
@@ -200,11 +210,11 @@ public class CardInteractionHandler {
                 if (existingCard != null) {
                     screen.uiManager.showReplaceDialog(existingCard, newCard, zoneName, getActor());
                 } else {
-                    screen.phaseManager.useRam(cardData.cost);
+                    screen.phaseManager.useRam(cardData.ramCost);
                     screen.hand.removeValue(newCard, true);
                     screen.updateHandPositions();
 
-                    newCard.isOnBoard = true; // Tandai sudah di meja agar tombol Execute muncul
+                    newCard.isOnBoard = true;
                     screen.placeCardInSlot(newCard, zoneName, getActor());
                 }
             }

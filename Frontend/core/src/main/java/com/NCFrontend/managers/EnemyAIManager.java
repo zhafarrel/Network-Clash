@@ -3,6 +3,7 @@ package com.NCFrontend.managers;
 import com.NCFrontend.screens.GameplayScreen;
 import com.NCFrontend.ui.CardActor;
 import com.NCFrontend.models.ScriptData;
+import com.NCFrontend.models.PlayerData; // TAMBAHAN
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.math.Interpolation;
@@ -11,10 +12,7 @@ import com.badlogic.gdx.scenes.scene2d.actions.Actions;
 public class EnemyAIManager {
     private GameplayScreen screen;
 
-    // Status AI
-    public int maxRam = 0;
-    public int currentRam = 0;
-    public final int MAX_RAM_LIMIT = 10;
+    // Variabel RAM lama dihapus, diganti panggil langsung screen.enemyProfile
     private boolean isFirstTurn = true;
 
     public EnemyAIManager(GameplayScreen screen) {
@@ -24,12 +22,14 @@ public class EnemyAIManager {
     public void startTurn() {
         Gdx.app.log("AI", "=== Giliran O.M.E.G.A Dimulai! ===");
 
-        // 1. Tambah RAM Musuh
-        if (maxRam < MAX_RAM_LIMIT) {
-            maxRam++;
+        // --- 1. REFRESH & TAMBAH RAM MUSUH MENGGUNAKAN MODEL ---
+        PlayerData eProfile = screen.enemyProfile;
+        if (eProfile.maxRam < 10) {
+            eProfile.maxRam++;
         }
-        currentRam = maxRam;
-        Gdx.app.log("AI", "RAM Musuh saat ini: " + currentRam);
+        eProfile.currentRam = eProfile.maxRam;
+        Gdx.app.log("AI", "RAM Musuh saat ini: " + eProfile.currentRam);
+        // -----------------------------------------------------
 
         // 2. Beri Jeda awal sebelum mulai berpikir
         screen.stage.addAction(Actions.sequence(
@@ -54,13 +54,11 @@ public class EnemyAIManager {
             drawEnemyCard();
         }
 
-        // 3. AI Mengevaluasi Kartu di Tangan dari indeks terkecil (0)
-        // Kita gunakan iterasi manual dan jeda antar kartu agar tidak tumpang tindih
+        // 3. AI Mengevaluasi Kartu di Tangan
         evaluateCardAtIndex(0);
     }
 
     private void evaluateCardAtIndex(final int index) {
-        // Jika sudah mengecek semua kartu di tangan, akhiri giliran
         if (index >= screen.enemyHand.size) {
             finishAITurn();
             return;
@@ -68,22 +66,20 @@ public class EnemyAIManager {
 
         CardActor card = screen.enemyHand.get(index);
 
-        // Cek apakah RAM cukup
-        if (card.getData().cost <= currentRam) {
+        // --- CEK APAKAH RAM MUSUH CUKUP ---
+        if (card.getData().ramCost <= screen.enemyProfile.currentRam) {
             String targetLane = card.getData().validLane;
 
             if (targetLane.equalsIgnoreCase("ANY_LANE")) {
-                // Pilih lane acak yang kosong
                 targetLane = findEmptyLane();
             }
 
-            // Jika itu kartu Script, atau menemukan lane kosong
             if (card.getData() instanceof ScriptData) {
                 playEnemyCard(card, targetLane, true, index);
-                return; // Tunggu animasi selesai, lalu lanjut
+                return;
             } else if (targetLane != null && !screen.enemyActiveCards.containsKey(targetLane)) {
                 playEnemyCard(card, targetLane, false, index);
-                return; // Tunggu animasi selesai, lalu lanjut
+                return;
             }
         }
 
@@ -98,7 +94,7 @@ public class EnemyAIManager {
                 return lane;
             }
         }
-        return "Localhost"; // Fallback
+        return "Localhost";
     }
 
     private void drawEnemyCard() {
@@ -108,7 +104,6 @@ public class EnemyAIManager {
             card.isFaceUp = false;
             screen.enemyHand.add(card);
 
-            // --- TAMBAHKAN BARIS INI: Beri sensor agar bisa di-inspect pemain ---
             screen.interactionHandler.setupEnemyInspect(card);
 
             updateEnemyHandPositions();
@@ -117,7 +112,9 @@ public class EnemyAIManager {
     }
 
     private void playEnemyCard(final CardActor card, final String zoneName, boolean isScript, final int currentIndex) {
-        currentRam -= card.getData().cost;
+        // --- POTONG RAM MUSUH SETIAP KALI MAIN KARTU ---
+        screen.enemyProfile.currentRam -= card.getData().ramCost;
+
         screen.enemyHand.removeValue(card, true);
         updateEnemyHandPositions();
 
@@ -125,28 +122,24 @@ public class EnemyAIManager {
         card.isOnBoard = true;
 
         if (isScript) {
-            // Animasi Script
             card.toFront();
             card.addAction(Actions.sequence(
                 Actions.moveTo(Gdx.graphics.getWidth()/2f - 100, Gdx.graphics.getHeight()/2f, 0.4f),
                 Actions.delay(1.5f),
                 Actions.parallel(Actions.scaleTo(0.1f, 0.1f, 0.3f), Actions.fadeOut(0.3f)),
-
-                // --- PERBAIKAN DI SINI: RUN DULU, BARU REMOVE ---
                 Actions.run(new Runnable() {
                     @Override
                     public void run() {
                         Gdx.app.log("AI", "Memainkan SCRIPT: " + card.getData().name);
-                        // Lanjut cek sisa kartu di tangan
+                        // Lanjut cek sisa kartu di tangan (kembali ke indeks 0 setelah tangan bergeser)
                         evaluateCardAtIndex(0);
                     }
                 }),
-                Actions.removeActor() // Pindahkan removeActor ke paling akhir!
+                Actions.removeActor()
             ));
         } else {
-            // Animasi taruh Program/Malware
             float targetX = getXForLane(zoneName);
-            float targetY = 550f; // Posisi Y meja musuh
+            float targetY = 550f;
 
             screen.enemyActiveCards.put(zoneName, card);
 
@@ -157,12 +150,12 @@ public class EnemyAIManager {
                     Actions.moveTo(targetX, targetY, 0.4f, Interpolation.pow3Out),
                     Actions.rotateTo(180f, 0.4f, Interpolation.pow3Out)
                 ),
-                Actions.delay(0.5f), // Jeda setelah taruh
+                Actions.delay(0.5f),
                 Actions.run(new Runnable() {
                     @Override
                     public void run() {
                         Gdx.app.log("AI", "Menaruh " + card.getData().name + " di " + zoneName);
-                        // Lanjut cek sisa kartu di tangan
+                        // Lanjut cek sisa kartu di tangan (kembali ke indeks 0 setelah tangan bergeser)
                         evaluateCardAtIndex(0);
                     }
                 })
@@ -174,11 +167,9 @@ public class EnemyAIManager {
         Gdx.app.log("AI", "=== Mengakhiri Fase Main O.M.E.G.A ===");
         screen.uiManager.updatePhaseLabel("BATTLE PHASE", Color.ORANGE);
 
-        // Panggil wasit untuk serangan musuh
         com.NCFrontend.logic.CombatResolver.resolveBoardCombat(screen, false, new Runnable() {
             @Override
             public void run() {
-                // Selesai bertarung, kembali ke giliranmu
                 screen.phaseManager.startPlayerTurn();
             }
         });

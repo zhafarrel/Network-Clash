@@ -21,61 +21,76 @@ public class CardActor extends Group {
     private Image illustration;
     private Image frame;
     private BitmapFont font;
-    private static Texture executeBtnTex;
 
-    // VARIABEL BARU: Mengecek apakah kartu di tangan (buka) atau di deck (tutup)
+    private static Texture executeBtnTex;
+    private static Texture swordIcon;
+    private static Texture heartIcon;
+
     public boolean isFaceUp = true;
     public boolean isFlooped = false;
     public boolean isOnBoard = false;
 
-
     public CardActor(BaseCard data, Texture illustrationTex) {
         this.data = data;
 
-        // 1. Ukuran kartu proporsional
         this.setSize(210, 300);
         this.setOrigin(getWidth() / 2f, getHeight() / 2f);
 
+        // --- INISIALISASI TEKSTUR & IKON ---
         if (executeBtnTex == null) {
             Pixmap pix = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
-            pix.setColor(Color.ORANGE);
-            pix.fill();
-            executeBtnTex = new Texture(pix);
-            pix.dispose();
+            pix.setColor(Color.ORANGE); pix.fill();
+            executeBtnTex = new Texture(pix); pix.dispose();
         }
-        // 2. Setup ILUSTRASI (Lapisan Bawah)
+
+        if (swordIcon == null) {
+            try {
+                swordIcon = new Texture(Gdx.files.internal("images/sword.png"));
+            } catch (Exception e) {
+                Pixmap pix = new Pixmap(40, 40, Pixmap.Format.RGBA8888);
+                pix.setColor(Color.LIGHT_GRAY); pix.fill();
+                swordIcon = new Texture(pix); pix.dispose();
+            }
+        }
+
+        if (heartIcon == null) {
+            try {
+                heartIcon = new Texture(Gdx.files.internal("images/heart.png"));
+            } catch (Exception e) {
+                Pixmap pix = new Pixmap(40, 40, Pixmap.Format.RGBA8888);
+                pix.setColor(Color.FIREBRICK); pix.fill();
+                heartIcon = new Texture(pix); pix.dispose();
+            }
+        }
+        // ------------------------------------
+
         illustration = new Image(illustrationTex);
         illustration.setSize(getWidth(), getHeight());
-
-        // Memberi filter gelap agar teks neon menonjol
         illustration.setColor(0.3f, 0.3f, 0.3f, 1f);
         this.addActor(illustration);
 
-        // 3. Setup FRAME (Lapisan Atas)
         try {
             Texture frameTex = new Texture(Gdx.files.internal("images/card_frame.png"));
             frame = new Image(frameTex);
             frame.setSize(getWidth(), getHeight());
             this.addActor(frame);
         } catch (Exception e) {
-            Gdx.app.log("CardActor", "Frame belum ada (card_frame.png tidak ditemukan).");
+            Gdx.app.log("CardActor", "Frame belum ada.");
         }
 
-        // 4. GENERATE CYBERPUNK FONT (.OTF)
-        // Pastikan file .otf ada di assets/fonts/
         FreeTypeFontGenerator generator = new FreeTypeFontGenerator(Gdx.files.internal("fonts/cyber.otf"));
         FreeTypeFontParameter parameter = new FreeTypeFontParameter();
 
-        parameter.size = 10; // Ukuran dasar
+        parameter.size = 10;
         parameter.color = Color.WHITE;
-        parameter.borderWidth = 1.2f; // Outline hitam agar teks terbaca di gambar terang
+        parameter.borderWidth = 1.2f;
         parameter.borderColor = Color.BLACK;
         parameter.shadowOffsetX = 2;
         parameter.shadowOffsetY = 2;
-        parameter.shadowColor = new Color(0, 1, 1, 0.5f); // Bayangan biru neon transparan
+        parameter.shadowColor = new Color(0, 1, 1, 0.5f);
 
         this.font = generator.generateFont(parameter);
-        generator.dispose(); // Wajib di-dispose untuk cegah memory leak
+        generator.dispose();
     }
 
     @Override
@@ -104,7 +119,6 @@ public class CardActor extends Group {
         float w = getWidth();
         float h = getHeight();
 
-        // --- PENGAMAN MUTLAK FONT (Mencegah Monster Teks) ---
         float oldScaleX = font.getData().scaleX;
         float oldScaleY = font.getData().scaleY;
 
@@ -112,7 +126,7 @@ public class CardActor extends Group {
             // A. RAM COST
             font.getData().setScale(1.0f);
             font.setColor(Color.CYAN);
-            font.draw(batch, String.valueOf(data.cost), 18, h - 15);
+            font.draw(batch, String.valueOf(data.ramCost), 18, h - 15);
 
             // B. TIPE KARTU
             String cardType = "UNKNOWN";
@@ -137,15 +151,12 @@ public class CardActor extends Group {
                 font.draw(batch, desc, 25, 125, w - 50, Align.center, true);
             }
 
-            // E. VISUAL TOMBOL EXECUTE SOLID
+            // E. VISUAL TOMBOL EXECUTE
             boolean hasExecute = desc != null && desc.contains("(EXECUTE)");
 
-            // SYARAT BARU: Harus sudah di board (isOnBoard), punya efek execute, dan belum dipakai (!isFlooped)
             if (isOnBoard && hasExecute && !isFlooped) {
-                float btnW = 100;
-                float btnH = 26;
-                float btnX = (w - btnW) / 2f;
-                float btnY = 65;
+                float btnW = 100; float btnH = 26;
+                float btnX = (w - btnW) / 2f; float btnY = 65;
 
                 batch.setColor(Color.WHITE);
                 batch.draw(executeBtnTex, btnX, btnY, btnW, btnH);
@@ -155,8 +166,7 @@ public class CardActor extends Group {
                 font.draw(batch, "EXECUTE", 0, btnY + 20, w, Align.center, false);
             }
 
-            // F. STATISTIK ATK & HP
-            font.getData().setScale(1.1f);
+            // F. STATISTIK ATK & HP (SAAT KARTU DI TANGAN)
             int atk = -1, hp = -1;
             boolean hasStats = false;
 
@@ -173,14 +183,37 @@ public class CardActor extends Group {
             }
 
             if (hasStats) {
+                // Di tangan (Statistik Kecil di bawah ilustrasi)
+                font.getData().setScale(1.1f);
                 font.setColor(Color.ORANGE);
                 font.draw(batch, String.valueOf(atk), 25, 35);
                 font.setColor(Color.LIME);
                 font.draw(batch, String.valueOf(hp), w - 55, 35);
+
+                // G. STATISTIK FLOATING DI LUAR KARTU (Saat di Arena)
+                if (isOnBoard) {
+                    font.getData().setScale(4.0f);
+
+                    // -- BAGIAN KIRI: [Ikon Pedang] [Angka ATK] --
+                    batch.setColor(Color.WHITE);
+                    // Ikon diperbesar jadi 60x60, posisi Y sejajar dengan teks
+                    batch.draw(swordIcon, -95, h - 60, 60, 60);
+
+                    font.setColor(Color.WHITE);
+                    font.draw(batch, String.valueOf(atk), -30, h - 15);
+
+                    // -- BAGIAN KANAN: [Angka HP] [Ikon Hati] --
+                    font.setColor(Color.RED);
+                    font.draw(batch, String.valueOf(hp), w + 15, h - 15);
+
+                    batch.setColor(Color.WHITE);
+                    // Cek jika HP puluhan, geser ikon hati agak ke kanan agar tidak tabrakan dengan angka
+                    float heartOffsetX = (hp > 9) ? w + 85 : w + 60;
+                    batch.draw(heartIcon, heartOffsetX, h - 60, 60, 60);
+                }
             }
 
         } finally {
-            // --- INI KUNCINYA: Selalu kembalikan ukuran font aslinya apapun yang terjadi! ---
             font.getData().setScale(oldScaleX, oldScaleY);
         }
 
