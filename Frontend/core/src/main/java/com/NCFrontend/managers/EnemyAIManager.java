@@ -22,16 +22,21 @@ public class EnemyAIManager {
     public void startTurn() {
         Gdx.app.log("AI", "=== Giliran O.M.E.G.A Dimulai! ===");
 
-        // --- 1. REFRESH & TAMBAH RAM MUSUH MENGGUNAKAN MODEL ---
-        PlayerData eProfile = screen.enemyProfile;
-        if (eProfile.maxRam < 10) {
-            eProfile.maxRam++;
-        }
-        eProfile.currentRam = eProfile.maxRam;
-        Gdx.app.log("AI", "RAM Musuh saat ini: " + eProfile.currentRam);
-        // -----------------------------------------------------
+        // --- SISTEM RAM: CARD WARS ADVENTURE TIME (AI) ---
+        com.NCFrontend.models.PlayerData eProfile = screen.enemyProfile;
 
-        // 2. Beri Jeda awal sebelum mulai berpikir
+        // Pastikan kapasitas RAM AI juga minimal 5
+        if (eProfile.maxRam < 5) {
+            eProfile.maxRam = 5;
+        }
+
+        // REFILL PENUH: AI mendapatkan RAM maksimalnya kembali setiap turn
+        eProfile.currentRam = eProfile.maxRam;
+
+        Gdx.app.log("AI", "RAM Musuh diisi penuh: " + eProfile.currentRam + "/" + eProfile.maxRam);
+        // -------------------------------------------------
+
+        // Beri Jeda awal sebelum mulai berpikir
         screen.stage.addAction(Actions.sequence(
             Actions.delay(1.0f),
             Actions.run(new Runnable() {
@@ -54,7 +59,20 @@ public class EnemyAIManager {
             drawEnemyCard();
         }
 
-        // 3. AI Mengevaluasi Kartu di Tangan
+        // --- UPGRADE KECERDASAN AI: PRIORITAS KARTU KUAT ---
+        // Urutkan kartu di tangan dari RAM paling mahal ke yang paling murah
+        screen.enemyHand.sort(new java.util.Comparator<CardActor>() {
+            @Override
+            public int compare(CardActor c1, CardActor c2) {
+                return Integer.compare(c2.getData().ramCost, c1.getData().ramCost);
+            }
+        });
+
+        // Posisikan ulang kartu secara visual setelah diurutkan
+        updateEnemyHandPositions();
+        // ----------------------------------------------------
+
+        // 3. AI Mengevaluasi Kartu di Tangan (Mulai dari yang termahal sekarang)
         evaluateCardAtIndex(0);
     }
 

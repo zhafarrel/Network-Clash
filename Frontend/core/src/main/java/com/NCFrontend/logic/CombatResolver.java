@@ -156,18 +156,31 @@ public class CombatResolver {
 
         final CardActor[] finalDefender = {originalDefender};
 
+        if (attacker != null && attacker.isStunned) {
+            // Jika sedang kena Stun, hapus efek Stun-nya untuk giliran berikutnya
+            attacker.isStunned = false;
+
+            // Munculkan tulisan STUNNED! agar pemain tahu kenapa kartunya diam
+            spawnFloatingText(screen, attacker.getX() + 50, attacker.getY() + 150, "STUNNED!", Color.YELLOW, 1.5f, 40f);
+
+            // Lewati serangan dan lanjut ke lane berikutnya
+            processAttackForLane(screen, lanes, index + 1, isPlayerAttacking, onComplete);
+            return;
+        }
+
         if (attacker != null && !attacker.isFlooped) {
 
             if (attacker.getData().abilities != null) {
                 for (CardAbility ability : attacker.getData().abilities) {
-                    finalDefender[0] = ability.onTargeting(attacker, finalDefender[0], screen);
+                    finalDefender[0] = ability.onTargeting(attacker, attacker, finalDefender[0], screen);
                 }
             }
+
             ObjectMap<String, CardActor> enemyBoard = isPlayerAttacking ? screen.enemyActiveCards : screen.activeCards;
             for (CardActor enemyOnBoard : enemyBoard.values()) {
                 if (enemyOnBoard.getData().abilities != null) {
                     for (CardAbility ability : enemyOnBoard.getData().abilities) {
-                        finalDefender[0] = ability.onTargeting(attacker, finalDefender[0], screen);
+                        finalDefender[0] = ability.onTargeting(enemyOnBoard, attacker, finalDefender[0], screen);
                     }
                 }
             }
@@ -209,18 +222,13 @@ public class CombatResolver {
         }
     }
 
-    // --- BAGIAN YANG DIPERBAIKI (PERBAIKAN LOGIC FREEZE) ---
     private static void finishAttackAnimation(CardActor attacker, float startY, GameplayScreen screen, String[] lanes, int index, boolean isPlayerAttacking, Runnable onComplete, boolean gameOver) {
-
-        // 1. Animasi mundur hanya ditambahkan jika attacker masih hidup (belum terhapus dari stage)
         if (attacker != null && attacker.getStage() != null) {
             attacker.addAction(Actions.moveTo(attacker.getX(), startY, 0.2f, Interpolation.pow2Out));
         }
 
-        // 2. Perintah lanjut turn dipindahkan ke ROOT STAGE agar mutlak dieksekusi
-        // meskipun kartu penyerang hancur terkena counter-attack!
         screen.stage.addAction(Actions.sequence(
-            Actions.delay(0.4f), // 0.2s waktu mundur + 0.2s jeda antar lane
+            Actions.delay(0.4f),
             Actions.run(() -> {
                 if (!gameOver && screen.phaseManager.currentPhase != GamePhaseManager.GamePhase.WIN && screen.phaseManager.currentPhase != GamePhaseManager.GamePhase.LOSE) {
                     processAttackForLane(screen, lanes, index + 1, isPlayerAttacking, onComplete);
@@ -228,7 +236,6 @@ public class CombatResolver {
             })
         ));
     }
-    // --------------------------------------------------------
 
     private static boolean applyDamage(CardActor attacker, CardActor defender, boolean isPlayerAttacking, GameplayScreen screen, String lane, int multiplier) {
 
@@ -239,6 +246,7 @@ public class CombatResolver {
         int finalAtk = 0;
         boolean isGameOver = false;
 
+        // LOGIKA MULTIPLIER DAMAGE
         if (isPlayerAttacking) {
             if (multiplier == 0) {
                 spawnFloatingText(screen, attackerCenterX, attackerTopY, "MISS!", Color.GRAY, 2f, 50f);
@@ -288,16 +296,43 @@ public class CombatResolver {
                         Actions.parallel(Actions.scaleTo(0, 0, 0.3f), Actions.fadeOut(0.3f)),
                         Actions.removeActor()
                     ));
-                    screen.enemyActiveCards.remove(lane);
+
+                    // --- PERBAIKAN BUG HANTU UNTUK COUNTER ATTACK ---
+                    // Cek apakah attacker masih attacker asli, bukan token
+                    if (screen.enemyActiveCards.get(lane) == attacker) {
+                        screen.enemyActiveCards.remove(lane);
+                    }
                 }
                 return false;
             }
         }
 
+        // EKSEKUSI DAMAGE KE DEFENDER
         if (defender != null) {
             int defHp = getHp(defender.getData());
             defHp -= finalAtk;
             setHp(defender.getData(), defHp);
+
+            if (defHp < 0) { // Jika damage luber/berlebih
+                boolean hasPierce = false;
+                if (attacker.getData().abilities != null) {
+                    for (CardAbility ability : attacker.getData().abilities) {
+                        if (ability instanceof com.NCFrontend.logic.abilities.OversizedPacketAbility) hasPierce = true;
+                    }
+                }
+
+                if (hasPierce) {
+                    int pierceDamage = Math.abs(defHp);
+                    Gdx.app.log("Combat", "OVERSIZED PACKET! Sisa " + pierceDamage + " Damage menembus ke sistem utama!");
+                    if (isPlayerAttacking) {
+                        screen.enemyProfile.takeDamage(pierceDamage);
+                    } else {
+                        screen.playerProfile.takeDamage(pierceDamage);
+                    }
+                    screen.uiManager.updateHP();
+                    showRedFlash(screen);
+                }
+            }
 
             float defCenterX = defender.getX() + (defender.getWidth() * defender.getScaleX()) / 2f;
             float defCenterY = defender.getY() + (defender.getHeight() * defender.getScaleY()) / 2f;
@@ -309,17 +344,7 @@ public class CombatResolver {
             ));
 
             if (defHp <= 0) {
-                if (defender.getData().abilities != null) {
-                    for (CardAbility ability : defender.getData().abilities) {
-                        ability.onDeath(defender, screen);
-                    }
-                }
-
-                defender.addAction(Actions.sequence(
-                    Actions.parallel(Actions.scaleTo(0, 0, 0.3f), Actions.fadeOut(0.3f)),
-                    Actions.removeActor()
-                ));
-
+                // Cari lane sebelum memicu onDeath
                 String defenderLane = null;
                 ObjectMap<String, CardActor> defBoard = isPlayerAttacking ? screen.enemyActiveCards : screen.activeCards;
                 for (ObjectMap.Entry<String, CardActor> entry : defBoard.entries()) {
@@ -328,10 +353,40 @@ public class CombatResolver {
                         break;
                     }
                 }
-                if (defenderLane != null) defBoard.remove(defenderLane);
+
+                // Picu Skill onDeath (Bisa melahirkan Token di sini)
+                if (defender.getData().abilities != null) {
+                    for (CardAbility ability : defender.getData().abilities) {
+                        ability.onDeath(defender, screen);
+                    }
+                }
+
+                for (CardActor ally : screen.activeCards.values()) {
+                    if (ally != defender && ally.getData().abilities != null) {
+                        for (CardAbility ability : ally.getData().abilities) ability.onAnyCardDeath(ally, defender, screen);
+                    }
+                }
+                for (CardActor enemy : screen.enemyActiveCards.values()) {
+                    if (enemy != defender && enemy.getData().abilities != null) {
+                        for (CardAbility ability : enemy.getData().abilities) ability.onAnyCardDeath(enemy, defender, screen);
+                    }
+                }
+
+                // Hancurkan gambar aslinya
+                defender.addAction(Actions.sequence(
+                    Actions.parallel(Actions.scaleTo(0, 0, 0.3f), Actions.fadeOut(0.3f)),
+                    Actions.removeActor()
+                ));
+
+                // --- PERBAIKAN BUG HANTU ---
+                // Hanya hapus dari logika jika isi board MASIH kartu yang mati tadi
+                if (defenderLane != null && defBoard.get(defenderLane) == defender) {
+                    defBoard.remove(defenderLane);
+                }
             }
             return false;
         } else {
+            // DIRECT ATTACK KE SYSTEM
             float targetY = isPlayerAttacking ? Gdx.graphics.getHeight() - 150f : 150f;
 
             spawnSlashEffect(screen, attackerCenterX, targetY, finalAtk);

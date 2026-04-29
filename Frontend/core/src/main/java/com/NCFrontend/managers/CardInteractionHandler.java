@@ -1,5 +1,6 @@
 package com.NCFrontend.managers;
 
+import com.NCFrontend.logic.CardAbility;
 import com.NCFrontend.screens.GameplayScreen;
 import com.NCFrontend.ui.CardActor;
 import com.NCFrontend.models.BaseCard;
@@ -42,15 +43,13 @@ public class CardInteractionHandler {
             public DragAndDrop.Payload dragStart(InputEvent event, float x, float y, int pointer) {
                 if (screen.phaseManager.currentPhase != GamePhaseManager.GamePhase.PLAYER_MAIN || !screen.hand.contains(visualCard, true)) return null;
 
-                // --- CEK RAM: BISA DITARIK ATAU TIDAK ---
-                // Menggunakan model playerProfile yang baru
                 if (screen.playerProfile.currentRam < visualCard.getData().ramCost) {
                     visualCard.addAction(Actions.sequence(
                         Actions.moveBy(15, 0, 0.05f),
                         Actions.moveBy(-30, 0, 0.05f),
                         Actions.moveBy(15, 0, 0.05f)
                     ));
-                    return null; // Gagal Drag karena RAM tidak cukup!
+                    return null;
                 }
 
                 DragAndDrop.Payload payload = new DragAndDrop.Payload();
@@ -134,8 +133,16 @@ public class CardInteractionHandler {
                         boolean hasExecute = card.getData().description != null && card.getData().description.contains("(EXECUTE)");
 
                         if (hasExecute && y < 150) {
+                            // --- MEMICU SKILL EXECUTE (FLOOP) ---
                             card.isFlooped = true;
                             card.addAction(Actions.rotateTo(-90, 0.4f, Interpolation.smooth));
+
+                            // Eksekusi semua skill tipe Floop di kartu ini
+                            if (card.getData().abilities != null) {
+                                for (com.NCFrontend.logic.CardAbility ability : card.getData().abilities) {
+                                    ability.onFloop(card, screen);
+                                }
+                            }
                             return true;
                         }
                         else if (y >= 150) {
@@ -163,27 +170,24 @@ public class CardInteractionHandler {
                 CardActor card = (CardActor) payload.getObject();
                 BaseCard cardData = card.getData();
 
-                // 1. Script/Spell bisa di-drop di mana saja (Warnanya Cyan)
                 if (cardData instanceof ScriptData) {
                     getActor().setColor(new Color(0, 1, 1, 0.6f));
                     return true;
                 }
 
-                // 2. Program/Malware harus cek validLane-nya
                 String cardLane = cardData.validLane;
                 if (cardLane == null || cardLane.equalsIgnoreCase("ANY_LANE") || zoneName.equalsIgnoreCase(cardLane)) {
-                    getActor().setColor(new Color(0, 1, 0, 0.6f)); // Valid (Hijau)
+                    getActor().setColor(new Color(0, 1, 0, 0.6f));
                     return true;
                 }
 
-                // Tidak Valid (Merah)
                 getActor().setColor(new Color(1, 0, 0, 0.6f));
                 return false;
             }
 
             @Override
             public void reset(DragAndDrop.Source source, DragAndDrop.Payload payload) {
-                getActor().setColor(new Color(0, 1, 0, 0.3f)); // Kembalikan ke warna default zona
+                getActor().setColor(new Color(0, 1, 0, 0.3f));
             }
 
             @Override
@@ -191,22 +195,33 @@ public class CardInteractionHandler {
                 CardActor newCard = (CardActor) payload.getObject();
                 BaseCard cardData = newCard.getData();
 
-                // 1. KARTU SCRIPT
+                // ==========================================
+                // JIKA KARTU YANG DI-DROP ADALAH SCRIPT
+                // ==========================================
                 if (cardData instanceof ScriptData) {
                     screen.phaseManager.useRam(cardData.ramCost);
                     screen.hand.removeValue(newCard, true);
                     screen.updateHandPositions();
+
+                    // 1. Eksekusi semua kemampuan (spell) di dalam kartu ini!
+                    if (cardData.abilities != null) {
+                        for (com.NCFrontend.logic.CardAbility ability : cardData.abilities) {
+                            // zoneName adalah lane tempat pemain melepaskan (drop) kartunya
+                            ability.onPlayScript(newCard, zoneName, screen);
+                        }
+                    }
+
+                    // 2. Hancurkan kartu secara visual karena sudah selesai dipakai
                     newCard.addAction(Actions.sequence(
                         Actions.parallel(Actions.scaleTo(0.1f, 0.1f, 0.3f), Actions.fadeOut(0.3f)),
                         Actions.removeActor()
                     ));
-                    // TODO: Panggil efek Script di sini nantinya!
                     return;
                 }
+                // ==========================================
 
                 CardActor existingCard = screen.activeCards.get(zoneName);
 
-                // 2. KARTU PROGRAM/MALWARE
                 if (existingCard != null) {
                     screen.uiManager.showReplaceDialog(existingCard, newCard, zoneName, getActor());
                 } else {
@@ -216,6 +231,17 @@ public class CardInteractionHandler {
 
                     newCard.isOnBoard = true;
                     screen.placeCardInSlot(newCard, zoneName, getActor());
+
+                    for (CardActor ally : screen.activeCards.values()) {
+                        if (ally.getData().abilities != null) {
+                            for (CardAbility ability : ally.getData().abilities) ability.onCardDeployed(ally, newCard, zoneName, screen);
+                        }
+                    }
+                    for (CardActor enemy : screen.enemyActiveCards.values()) {
+                        if (enemy.getData().abilities != null) {
+                            for (CardAbility ability : enemy.getData().abilities) ability.onCardDeployed(enemy, newCard, zoneName, screen);
+                        }
+                    }
                 }
             }
         });

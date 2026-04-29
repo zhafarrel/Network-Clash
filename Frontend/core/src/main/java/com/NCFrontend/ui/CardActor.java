@@ -29,6 +29,8 @@ public class CardActor extends Group {
     public boolean isFaceUp = true;
     public boolean isFlooped = false;
     public boolean isOnBoard = false;
+    public boolean isStunned = false;
+    public boolean isSilenced = false;
 
     public CardActor(BaseCard data, Texture illustrationTex) {
         this.data = data;

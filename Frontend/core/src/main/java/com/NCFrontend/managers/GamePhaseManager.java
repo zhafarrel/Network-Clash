@@ -2,7 +2,7 @@ package com.NCFrontend.managers;
 
 import com.NCFrontend.screens.GameplayScreen;
 import com.NCFrontend.ui.CardActor;
-import com.NCFrontend.models.PlayerData; // TAMBAHAN
+import com.NCFrontend.models.PlayerData;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.math.Interpolation;
@@ -19,8 +19,6 @@ public class GamePhaseManager {
     public GamePhase currentPhase = GamePhase.PLAYER_DRAW;
     private boolean isFirstTurn = true;
 
-    // Variabel maxRam & currentRam dihapus karena sudah diganti dengan PlayerData
-
     public GamePhaseManager(GameplayScreen screen) {
         this.screen = screen;
     }
@@ -31,11 +29,9 @@ public class GamePhaseManager {
         if (isWin) {
             currentPhase = GamePhase.WIN;
             screen.uiManager.updatePhaseLabel("SISTEM AMAN: VICTORY!", Color.GOLD);
-            Gdx.app.log("Game", "Pemain Menang!");
         } else {
             currentPhase = GamePhase.LOSE;
             screen.uiManager.updatePhaseLabel("SISTEM CRITICAL: DEFEAT!", Color.FIREBRICK);
-            Gdx.app.log("Game", "Pemain Kalah!");
         }
 
         Gdx.input.setInputProcessor(null);
@@ -75,14 +71,19 @@ public class GamePhaseManager {
         currentPhase = GamePhase.PLAYER_DRAW;
         screen.uiManager.updatePhaseLabel("GILIRAN: SYSADMIN", Color.CYAN);
 
-        // --- UPDATE RAM MENGGUNAKAN MODEL BARU ---
+        // --- SISTEM RAM: CARD WARS ADVENTURE TIME ---
         PlayerData pProfile = screen.playerProfile;
-        if (pProfile.maxRam < 10) {
-            pProfile.maxRam++;
+
+        // Pastikan kapasitas RAM minimal adalah 5 (atau angka lain sesuai level hero)
+        if (pProfile.maxRam < 5) {
+            pProfile.maxRam = 5;
         }
+
+        // REFILL PENUH: Setiap turn dimulai, RAM kembali ke kapasitas maksimal
         pProfile.currentRam = pProfile.maxRam;
+
         screen.uiManager.updateRamLabel(pProfile.currentRam, pProfile.maxRam);
-        // -----------------------------------------
+        // ---------------------------------------------
 
         if (isFirstTurn) {
             isFirstTurn = false;
@@ -111,6 +112,16 @@ public class GamePhaseManager {
 
         screen.uiManager.updatePhaseLabel("BATTLE PHASE", Color.ORANGE);
 
+        // --- MEMICU SKILL AKHIR GILIRAN (ON TURN END) ---
+        for (CardActor c : screen.activeCards.values()) {
+            if (c.getData().abilities != null) {
+                for (com.NCFrontend.logic.CardAbility ability : c.getData().abilities) {
+                    ability.onTurnEnd(c, screen);
+                }
+            }
+        }
+        // ------------------------------------------------
+
         com.NCFrontend.logic.CombatResolver.resolveBoardCombat(screen, true, new Runnable() {
             @Override
             public void run() {
@@ -126,7 +137,6 @@ public class GamePhaseManager {
     }
 
     public void useRam(int amount) {
-        // --- MEMOTONG RAM DARI MODEL BARU ---
         if (screen.playerProfile.currentRam >= amount) {
             screen.playerProfile.currentRam -= amount;
             screen.uiManager.updateRamLabel(screen.playerProfile.currentRam, screen.playerProfile.maxRam);
