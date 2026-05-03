@@ -8,6 +8,7 @@ import java.util.List;
 public abstract class BaseCard {
     public String id;
     public String name;
+    public String type;
 
     @SerializedName("cost") // 2. TAMBAHKAN ANOTASI INI DI SINI
     public int ramCost;

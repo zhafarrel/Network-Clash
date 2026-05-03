@@ -13,7 +13,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.utils.Align;
 
 public class GamePhaseManager {
-    public enum GamePhase { PLAYER_DRAW, PLAYER_MAIN, ENEMY_TURN, WIN, LOSE }
+    public enum GamePhase { INIT, LANE_SETUP, PLAYER_DRAW, PLAYER_MAIN, ENEMY_TURN, WIN, LOSE }
 
     private GameplayScreen screen;
     public GamePhase currentPhase = GamePhase.PLAYER_DRAW;

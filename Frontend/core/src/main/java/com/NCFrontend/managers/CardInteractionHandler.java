@@ -29,10 +29,10 @@ public class CardInteractionHandler {
     }
 
     public void setupZonesAndButtons() {
-        createDropZone("Localhost", 300, 280, 175, 230);
-        createDropZone("Cloud Storage", 700, 280, 175, 230);
-        createDropZone("DMZ", 1100, 280, 175, 230);
-        createDropZone("Dark Node", 1500, 280, 175, 230);
+        createDropZone("Slot 0", 300, 280, 175, 230);
+        createDropZone("Slot 1", 700, 280, 175, 230);
+        createDropZone("Slot 2", 1100, 280, 175, 230);
+        createDropZone("Slot 3", 1500, 280, 175, 230);
     }
 
     public void registerCard(CardActor visualCard) {
@@ -41,9 +41,15 @@ public class CardInteractionHandler {
         dragAndDrop.addSource(new DragAndDrop.Source(visualCard) {
             @Override
             public DragAndDrop.Payload dragStart(InputEvent event, float x, float y, int pointer) {
-                if (screen.phaseManager.currentPhase != GamePhaseManager.GamePhase.PLAYER_MAIN || !screen.hand.contains(visualCard, true)) return null;
+                // 1. CEK FASE YANG DIIZINKAN (Bisa Main atau Setup)
+                boolean isPlayerMain = screen.phaseManager.currentPhase == GamePhaseManager.GamePhase.PLAYER_MAIN;
+                boolean isLaneSetup = screen.phaseManager.currentPhase == GamePhaseManager.GamePhase.LANE_SETUP;
 
-                if (screen.playerProfile.currentRam < visualCard.getData().ramCost) {
+                // Jika bukan kedua fase itu, atau kartu tidak ada di tangan, batalkan drag!
+                if (!(isPlayerMain || isLaneSetup) || !screen.hand.contains(visualCard, true)) return null;
+
+                // 2. CEK RAM (Hanya Berlaku saat PLAYER_MAIN)
+                if (isPlayerMain && screen.playerProfile.currentRam < visualCard.getData().ramCost) {
                     visualCard.addAction(Actions.sequence(
                         Actions.moveBy(15, 0, 0.05f),
                         Actions.moveBy(-30, 0, 0.05f),
@@ -52,6 +58,7 @@ public class CardInteractionHandler {
                     return null;
                 }
 
+                // 3. MULAI DRAG
                 DragAndDrop.Payload payload = new DragAndDrop.Payload();
                 payload.setObject(visualCard);
                 payload.setDragActor(visualCard);
@@ -89,12 +96,24 @@ public class CardInteractionHandler {
         });
     }
 
+    private int getSlotIndexFromName(String zoneName) {
+        if (zoneName.equals("Slot 0")) return 0;
+        if (zoneName.equals("Slot 1")) return 1;
+        if (zoneName.equals("Slot 2")) return 2;
+        if (zoneName.equals("Slot 3")) return 3;
+        return -1;
+    }
+
     private void setupHoverEffect(CardActor card) {
         card.addListener(new InputListener() {
 
             @Override
             public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
-                if (!screen.uiManager.isDialogOpen && pointer == -1 && screen.hand.contains(card, true) && screen.phaseManager.currentPhase == GamePhaseManager.GamePhase.PLAYER_MAIN) {
+                // CEK FASE YANG DIIZINKAN UNTUK HOVER
+                boolean validPhase = screen.phaseManager.currentPhase == GamePhaseManager.GamePhase.PLAYER_MAIN ||
+                    screen.phaseManager.currentPhase == GamePhaseManager.GamePhase.LANE_SETUP;
+
+                if (!screen.uiManager.isDialogOpen && pointer == -1 && screen.hand.contains(card, true) && validPhase) {
                     card.toFront();
                     card.clearActions();
                     Vector2 origin = (Vector2) card.getUserObject();
@@ -157,7 +176,7 @@ public class CardInteractionHandler {
     }
 
     private void createDropZone(String zoneName, float x, float y, float width, float height) {
-        Pixmap pixmap = new Pixmap((int) width, (int) height, Pixmap.Format.RGBA8888);
+        com.badlogic.gdx.graphics.Pixmap pixmap = new com.badlogic.gdx.graphics.Pixmap((int) width, (int) height, com.badlogic.gdx.graphics.Pixmap.Format.RGBA8888);
         pixmap.setColor(new Color(0, 1, 0, 0.3f)); pixmap.fill();
         Image dropZone = new Image(new Texture(pixmap)); pixmap.dispose();
         dropZone.setPosition(x, y);
@@ -168,15 +187,29 @@ public class CardInteractionHandler {
             @Override
             public boolean drag(DragAndDrop.Source source, DragAndDrop.Payload payload, float x, float y, int pointer) {
                 CardActor card = (CardActor) payload.getObject();
-                BaseCard cardData = card.getData();
+                com.NCFrontend.models.BaseCard cardData = card.getData();
 
-                if (cardData instanceof ScriptData) {
+                // Izinkan drag hijau semua saat Setup
+                if (screen.phaseManager.currentPhase == GamePhaseManager.GamePhase.LANE_SETUP) {
+                    getActor().setColor(new Color(0, 1, 0, 0.6f));
+                    return true;
+                }
+
+                if (cardData instanceof com.NCFrontend.models.ScriptData) {
                     getActor().setColor(new Color(0, 1, 1, 0.6f));
                     return true;
                 }
 
-                String cardLane = cardData.validLane;
-                if (cardLane == null || cardLane.equalsIgnoreCase("ANY_LANE") || zoneName.equalsIgnoreCase(cardLane)) {
+                // Terjemahkan nama Slot menjadi nama Jalur Asli
+                int slotIdx = getSlotIndexFromName(zoneName);
+                String actualLaneName = (slotIdx != -1 && screen.boardLanes[slotIdx] != null) ? screen.boardLanes[slotIdx] : zoneName;
+
+                String cardLane = null;
+                try {
+                    cardLane = (String) cardData.getClass().getField("validLane").get(cardData);
+                } catch (Exception e) {}
+
+                if (cardLane == null || cardLane.equalsIgnoreCase("ANY_LANE") || actualLaneName.equalsIgnoreCase(cardLane)) {
                     getActor().setColor(new Color(0, 1, 0, 0.6f));
                     return true;
                 }
@@ -193,53 +226,113 @@ public class CardInteractionHandler {
             @Override
             public void drop(DragAndDrop.Source source, DragAndDrop.Payload payload, float x, float y, int pointer) {
                 CardActor newCard = (CardActor) payload.getObject();
-                BaseCard cardData = newCard.getData();
+                com.NCFrontend.models.BaseCard cardData = newCard.getData();
 
                 // ==========================================
-                // JIKA KARTU YANG DI-DROP ADALAH SCRIPT
+                // FASE 1: PENYUSUNAN JALUR
                 // ==========================================
-                if (cardData instanceof ScriptData) {
+                if (screen.phaseManager.currentPhase == GamePhaseManager.GamePhase.LANE_SETUP) {
+                    if (cardData instanceof com.NCFrontend.models.ProgramData) {
+                        com.NCFrontend.models.ProgramData pData = (com.NCFrontend.models.ProgramData) cardData;
+
+                        if (pData.faction != null && pData.faction.equals("LANE")) {
+                            int slotIndex = getSlotIndexFromName(zoneName);
+
+                            if (slotIndex != -1 && screen.boardLanes[slotIndex] == null) {
+                                // 1. Kunci posisi jalur di array global
+                                screen.boardLanes[slotIndex] = cardData.name;
+                                screen.placedLanesCount++;
+
+                                // 2. Buang dari tangan agar posisi kartu lain merapat
+                                screen.hand.removeValue(newCard, true);
+                                screen.updateHandPositions();
+                                dragAndDrop.removeSource(source); // Matikan drag kartu ini
+
+                                // 3. EFEK KARTU MENGHILANG (Seperti Script)
+                                newCard.clearActions();
+                                newCard.addAction(Actions.sequence(
+                                    Actions.parallel(Actions.scaleTo(0.1f, 0.1f, 0.3f), Actions.fadeOut(0.3f)),
+                                    Actions.removeActor()
+                                ));
+
+                                // 4. MUNCULKAN TEKS NAMA JALUR DI DROPZONE
+                                com.badlogic.gdx.graphics.g2d.BitmapFont font = new com.badlogic.gdx.graphics.g2d.BitmapFont();
+                                font.getData().setScale(1.5f); // Perbesar font sedikit
+                                com.badlogic.gdx.scenes.scene2d.ui.Label.LabelStyle style = new com.badlogic.gdx.scenes.scene2d.ui.Label.LabelStyle(font, Color.WHITE);
+                                com.badlogic.gdx.scenes.scene2d.ui.Label laneLabel = new com.badlogic.gdx.scenes.scene2d.ui.Label(cardData.name.toUpperCase(), style);
+
+                                // Kalkulasi posisi agar teks berada tepat di tengah kotak DropZone
+                                laneLabel.setPosition(
+                                    getActor().getX() + (getActor().getWidth() - laneLabel.getWidth()) / 2f,
+                                    getActor().getY() + (getActor().getHeight() - laneLabel.getHeight()) / 2f
+                                );
+
+                                // Efek teks muncul perlahan (Fade-in)
+                                laneLabel.getColor().a = 0f;
+                                laneLabel.addAction(Actions.fadeIn(0.5f));
+                                screen.stage.addActor(laneLabel);
+
+                                // 5. Jika selesai 4 jalur, MULAI GAME dengan sedikit JEDA ANIMASI
+                                if (screen.placedLanesCount == 4) {
+                                    com.badlogic.gdx.Gdx.app.log("Game", "Semua jalur telah disetup! Memulai permainan...");
+
+                                    screen.stage.addAction(Actions.sequence(
+                                        Actions.delay(0.6f), // Tunggu animasi selesai
+                                        Actions.run(new Runnable() {
+                                            @Override
+                                            public void run() {
+                                                screen.phaseManager.startPlayerTurn();
+                                            }
+                                        })
+                                    ));
+                                }
+                            }
+                        }
+                    }
+                    return;
+                }
+                // ==========================================
+
+                // ==========================================
+                // FASE 2: PERMAINAN ASLI (PROGRAM/SCRIPT)
+                // ==========================================
+
+                // Terjemahkan nama Slot menjadi nama Jalur Asli!
+                int slotIdx = getSlotIndexFromName(zoneName);
+                String actualLaneName = (slotIdx != -1 && screen.boardLanes[slotIdx] != null) ? screen.boardLanes[slotIdx] : zoneName;
+
+                if (cardData instanceof com.NCFrontend.models.ScriptData) {
                     screen.phaseManager.useRam(cardData.ramCost);
                     screen.hand.removeValue(newCard, true);
                     screen.updateHandPositions();
 
-                    // 1. Eksekusi semua kemampuan (spell) di dalam kartu ini!
                     if (cardData.abilities != null) {
-                        for (com.NCFrontend.logic.CardAbility ability : cardData.abilities) {
-                            // zoneName adalah lane tempat pemain melepaskan (drop) kartunya
-                            ability.onPlayScript(newCard, zoneName, screen);
-                        }
+                        for (com.NCFrontend.logic.CardAbility ability : cardData.abilities) ability.onPlayScript(newCard, actualLaneName, screen);
                     }
 
-                    // 2. Hancurkan kartu secara visual karena sudah selesai dipakai
                     newCard.addAction(Actions.sequence(
                         Actions.parallel(Actions.scaleTo(0.1f, 0.1f, 0.3f), Actions.fadeOut(0.3f)),
                         Actions.removeActor()
                     ));
                     return;
                 }
-                // ==========================================
 
-                CardActor existingCard = screen.activeCards.get(zoneName);
+                CardActor existingCard = screen.activeCards.get(actualLaneName);
 
                 if (existingCard != null) {
-                    screen.uiManager.showReplaceDialog(existingCard, newCard, zoneName, getActor());
+                    screen.uiManager.showReplaceDialog(existingCard, newCard, actualLaneName, getActor());
                 } else {
                     screen.phaseManager.useRam(cardData.ramCost);
                     screen.hand.removeValue(newCard, true);
                     screen.updateHandPositions();
 
                     newCard.isOnBoard = true;
-                    screen.placeCardInSlot(newCard, zoneName, getActor());
+                    // Simpan di koordinat DropZone, TAPI rekam dengan nama jalur asli
+                    screen.placeCardInSlot(newCard, actualLaneName, getActor());
 
                     for (CardActor ally : screen.activeCards.values()) {
                         if (ally.getData().abilities != null) {
-                            for (CardAbility ability : ally.getData().abilities) ability.onCardDeployed(ally, newCard, zoneName, screen);
-                        }
-                    }
-                    for (CardActor enemy : screen.enemyActiveCards.values()) {
-                        if (enemy.getData().abilities != null) {
-                            for (CardAbility ability : enemy.getData().abilities) ability.onCardDeployed(enemy, newCard, zoneName, screen);
+                            for (com.NCFrontend.logic.CardAbility ability : ally.getData().abilities) ability.onCardDeployed(ally, newCard, actualLaneName, screen);
                         }
                     }
                 }

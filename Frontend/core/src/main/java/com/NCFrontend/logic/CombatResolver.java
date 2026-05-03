@@ -140,8 +140,15 @@ public class CombatResolver {
     }
 
     public static void resolveBoardCombat(GameplayScreen screen, boolean isPlayerAttacking, Runnable onComplete) {
-        String[] lanes = {"Localhost", "Cloud Storage", "DMZ", "Dark Node"};
-        processAttackForLane(screen, lanes, 0, isPlayerAttacking, onComplete);
+        // MENGGUNAKAN ARRAY DINAMIS DARI LAYAR
+        String[] lanes = screen.boardLanes;
+
+        // Pastikan tidak ada lane yang null sebelum memproses serangan
+        if (lanes[0] != null && lanes[1] != null && lanes[2] != null && lanes[3] != null) {
+            processAttackForLane(screen, lanes, 0, isPlayerAttacking, onComplete);
+        } else {
+            if (onComplete != null) onComplete.run();
+        }
     }
 
     private static void processAttackForLane(GameplayScreen screen, String[] lanes, int index, boolean isPlayerAttacking, Runnable onComplete) {

@@ -88,7 +88,7 @@ public class EnemyAIManager {
         if (card.getData().ramCost <= screen.enemyProfile.currentRam) {
             String targetLane = card.getData().validLane;
 
-            if (targetLane.equalsIgnoreCase("ANY_LANE")) {
+            if (targetLane == null || targetLane.equalsIgnoreCase("ANY_LANE")) {
                 targetLane = findEmptyLane();
             }
 
@@ -106,13 +106,15 @@ public class EnemyAIManager {
     }
 
     private String findEmptyLane() {
-        String[] lanes = {"Localhost", "Cloud Storage", "DMZ", "Dark Node"};
+        // --- OPERASI MATA AI (Bagian 1) ---
+        // AI sekarang akan membaca jalur yang diracik oleh Pemain dari array boardLanes
+        String[] lanes = screen.boardLanes;
         for (String lane : lanes) {
-            if (!screen.enemyActiveCards.containsKey(lane)) {
+            if (lane != null && !screen.enemyActiveCards.containsKey(lane)) {
                 return lane;
             }
         }
-        return "Localhost";
+        return screen.boardLanes[0]; // Kembali ke slot pertama jika penuh (fallback)
     }
 
     private void drawEnemyCard() {
@@ -214,10 +216,15 @@ public class EnemyAIManager {
     }
 
     private float getXForLane(String lane) {
-        if (lane.equalsIgnoreCase("Localhost")) return 327.5f;
-        if (lane.equalsIgnoreCase("Cloud Storage")) return 727.5f;
-        if (lane.equalsIgnoreCase("DMZ")) return 1127.5f;
-        if (lane.equalsIgnoreCase("Dark Node")) return 1527.5f;
-        return 500f;
+        int visualIndex = 0;
+        for (int i = 0; i < screen.boardLanes.length; i++) {
+            if (lane.equalsIgnoreCase(screen.boardLanes[i])) {
+                visualIndex = i;
+                break;
+            }
+        }
+
+        // Menentukan koordinat X berdasarkan indeks (0 = Paling Kiri, 3 = Paling Kanan)
+        return 327.5f + (visualIndex * 400f);
     }
 }

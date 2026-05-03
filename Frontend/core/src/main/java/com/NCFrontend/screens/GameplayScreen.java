@@ -37,6 +37,10 @@ public class GameplayScreen extends ScreenAdapter {
     public final int MAX_HAND_SIZE = 7;
     public CardActor dummyDeckVisual;
 
+    // DYNAMIC LANES
+    public String[] boardLanes = new String[4];
+    public int placedLanesCount = 0;
+
     // MENGGANTI INTEGER DENGAN MODEL PLAYERDATA
     public PlayerData playerProfile;
 
@@ -83,52 +87,82 @@ public class GameplayScreen extends ScreenAdapter {
         uiManager.setupUI();
 
         // Tarik Data Kartu dari Backend
+        // Tarik Data Kartu dari Backend
         ApiClient.fetchAllCards(new ApiClient.FetchCardsCallback() {
             @Override
             public void onSuccess(String jsonResponse) {
                 Gson gson = new Gson();
-                JsonArray cardArray = gson.fromJson(jsonResponse, JsonArray.class);
+                JsonArray cardArray = null;
 
-                // --- 1. BUAT KARTU PAJANGAN DECK PEMAIN ---
-                if (cardArray.size() > 0) {
+                // --- FIX NPE: DETEKSI OTOMATIS BENTUK JSON ---
+                try {
+                    // Coba baca jika formatnya terbungkus Object (contoh: {"data": [...]})
+                    com.google.gson.JsonObject root = com.google.gson.JsonParser.parseString(jsonResponse).getAsJsonObject();
+                    if (root.has("data")) {
+                        cardArray = root.getAsJsonArray("data");
+                    } else if (root.has("cards")) {
+                        cardArray = root.getAsJsonArray("cards");
+                    }
+                } catch (Exception e) {
+                    // Jika gagal jadi Object, berarti dia murni Array (contoh: [...])
+                    try {
+                        cardArray = gson.fromJson(jsonResponse, JsonArray.class);
+                    } catch (Exception ex) {
+                        Gdx.app.error("Network", "Format JSON hancur atau tidak dikenali.");
+                    }
+                }
+
+                // --- SABUK PENGAMAN (NULL CHECK) ---
+                if (cardArray != null && cardArray.size() > 0) {
+
+                    // --- 1. BUAT KARTU PAJANGAN DECK PEMAIN ---
                     dummyDeckVisual = CardFactory.createVisualCard(cardArray.get(0).toString());
                     dummyDeckVisual.isFaceUp = false; // Telungkup
                     dummyDeckVisual.setScale(0.5f);
                     dummyDeckVisual.setPosition(50, 350); // Posisi Deck Pemain
                     stage.addActor(dummyDeckVisual);
-                }
 
-                // --- 2. LOAD KARTU & PISAHKAN BERDASARKAN FACTION ---
-                for (JsonElement element : cardArray) {
-                    CardActor visualCard = CardFactory.createVisualCard(element.toString());
-                    visualCard.setVisible(false); // Sembunyikan aslinya
-                    visualCard.isFaceUp = false;
-                    visualCard.setScale(0.5f);
+                    // --- 2. LOAD KARTU & PISAHKAN BERDASARKAN FACTION ---
+                    for (JsonElement element : cardArray) {
+                        CardActor visualCard = CardFactory.createVisualCard(element.toString());
+                        visualCard.setVisible(false); // Sembunyikan aslinya
+                        visualCard.isFaceUp = false;
+                        visualCard.setScale(0.5f);
 
-                    // Pengecekan Faction (OMEGA vs SYSADMIN)
-                    if (visualCard.getData().faction.equalsIgnoreCase("OMEGA")) {
-                        visualCard.setPosition(1500, 800); // Taruh deck musuh di luar layar atas
-                        enemyDeck.add(visualCard);
-                    } else {
-                        visualCard.setPosition(50, 350); // Taruh di deck pemain
-                        deck.add(visualCard);
-                        interactionHandler.registerCard(visualCard); // Hanya daftarkan kartu pemain untuk di-drag
+                        // Pengecekan Faction (OMEGA vs SYSADMIN)
+                        if (visualCard.getData().faction.equalsIgnoreCase("OMEGA")) {
+                            visualCard.setPosition(1500, 800); // Taruh deck musuh di luar layar atas
+                            enemyDeck.add(visualCard);
+                        } else {
+                            visualCard.setPosition(50, 350); // Taruh di deck pemain
+                            deck.add(visualCard);
+                            interactionHandler.registerCard(visualCard); // Hanya daftarkan kartu pemain untuk di-drag
+                        }
+
+                        stage.addActor(visualCard);
                     }
 
-                    stage.addActor(visualCard);
+                    // Acak deck musuh secara normal
+                    enemyDeck.shuffle();
+
+                    // Gunakan algoritma penghalus tangan awal untuk Pemain (Mulligan)
+                    smoothOpeningHand();
+
+                    // --- 3. JALANKAN FASE DYNAMIC LANES! ---
+                    // Jangan langsung panggil startPlayerTurn(), tapi berikan kartu lane ke tangan pemain
+                    phaseManager.currentPhase = GamePhaseManager.GamePhase.LANE_SETUP;
+                    spawnLaneCards();
+
+                } else {
+                    // JIKA SERVER GAGAL ATAU KOSONG
+                    Gdx.app.error("Network", "GAGAL MEMUAT KARTU! Balasan server: " + jsonResponse);
+                    uiManager.updatePhaseLabel("KONEKSI SERVER GAGAL", com.badlogic.gdx.graphics.Color.RED);
                 }
-
-                // Acak deck musuh secara normal
-                enemyDeck.shuffle();
-
-                // Gunakan algoritma penghalus tangan awal untuk Pemain (Mulligan)
-                smoothOpeningHand();
-
-                // Mulai Game
-                phaseManager.startPlayerTurn();
             }
+
             @Override public void onError(Throwable t) {
-                Gdx.app.error("Game", "Koneksi Backend Gagal!");
+                Gdx.app.error("Game", "Koneksi Backend Gagal!", t);
+                uiManager.updatePhaseLabel("KONEKSI BACKEND MATI", com.badlogic.gdx.graphics.Color.RED);
             }
         });
     }
@@ -193,6 +227,36 @@ public class GameplayScreen extends ScreenAdapter {
         activeCards.put(zoneName, card);
     }
 
+    public void spawnLaneCards() {
+        String[] laneNames = {"Localhost", "Cloud Storage", "DMZ", "Dark Node"};
+
+        for (String laneName : laneNames) {
+            // Buat data sementara dengan tipe "LANE" agar gampang difilter
+            com.NCFrontend.models.ProgramData laneData = new com.NCFrontend.models.ProgramData(
+                laneName, 0, 0, 0, "LANE", "Pilih posisi untuk meletakkan jalur ini."
+            );
+
+            // Gunakan gambar dummy atau gambar khusus lane
+            com.badlogic.gdx.graphics.Texture tex;
+            try {
+                tex = new com.badlogic.gdx.graphics.Texture(com.badlogic.gdx.Gdx.files.internal("images/lane_" + laneName.toLowerCase().replace(" ", "") + ".png"));
+            } catch (Exception e) {
+                tex = new com.badlogic.gdx.graphics.Texture(com.badlogic.gdx.Gdx.files.internal("libgdx.png"));
+            }
+
+            com.NCFrontend.ui.CardActor laneCard = new com.NCFrontend.ui.CardActor(laneData, tex);
+            laneCard.isFaceUp = true;
+
+            hand.add(laneCard);
+            stage.addActor(laneCard);
+            interactionHandler.registerCard(laneCard);
+        }
+
+        updateHandPositions();
+        // Beri tahu UI bahwa kita sedang di fase setup
+        uiManager.updatePhaseLabel("FASE SETUP: SUSUN JALUR", com.badlogic.gdx.graphics.Color.ORANGE);
+    }
+
     // =====================================
     // ALGORITMA PENGHALUS TANGAN AWAL (MULLIGAN)
     // =====================================
@@ -230,6 +294,8 @@ public class GameplayScreen extends ScreenAdapter {
             if (cost1Cards.size > 0) newDeck.add(cost1Cards.pop());
             else if (cost2Cards.size > 0) newDeck.add(cost2Cards.pop());
         }
+
+
 
         Array<CardActor> remainingCards = new Array<>();
         remainingCards.addAll(cost1Cards);
