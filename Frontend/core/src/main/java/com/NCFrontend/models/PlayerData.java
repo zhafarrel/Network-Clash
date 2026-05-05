@@ -6,7 +6,7 @@ public class PlayerData {
 
     public int hp;         // System Integrity saat ini
     public int maxHp;      // Batas maksimal System Integrity
-
+    public int currentHp;
     public int currentRam; // RAM yang bisa dipakai giliran ini
     public int maxRam;     // Kapasitas slot RAM (Biasanya bertambah 1 setiap giliran)
 

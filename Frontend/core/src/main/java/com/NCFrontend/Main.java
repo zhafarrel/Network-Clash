@@ -2,6 +2,7 @@ package com.NCFrontend;
 
 import com.NCFrontend.managers.MyAssetManager;
 import com.NCFrontend.screens.GameplayScreen; // Import GameplayScreen yang baru dibuat
+import com.NCFrontend.screens.MainMenuScreen;
 import com.badlogic.gdx.Game;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 
@@ -22,7 +23,7 @@ public class Main extends Game {
 
         // 3. LANGSUNG ke GameplayScreen untuk ngetes kartu dari Backend
         // Kita kirim 'this' (instance Main) agar GameplayScreen bisa mengakses batch jika perlu
-        this.setScreen(new GameplayScreen());
+        this.setScreen(new MainMenuScreen(this));
     }
 
     @Override

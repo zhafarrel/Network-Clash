@@ -154,6 +154,9 @@ public class CardInteractionHandler {
                         if (hasExecute && y < 150) {
                             // --- MEMICU SKILL EXECUTE (FLOOP) ---
                             card.isFlooped = true;
+
+                            // MUNCULKAN POPUP NOTIFIKASI
+                            screen.uiManager.showNotification("SYSADMIN EXECUTE:\n" + card.getData().description);
                             card.addAction(Actions.rotateTo(-90, 0.4f, Interpolation.smooth));
 
                             // Eksekusi semua skill tipe Floop di kartu ini
@@ -302,6 +305,7 @@ public class CardInteractionHandler {
                 String actualLaneName = (slotIdx != -1 && screen.boardLanes[slotIdx] != null) ? screen.boardLanes[slotIdx] : zoneName;
 
                 if (cardData instanceof com.NCFrontend.models.ScriptData) {
+                    screen.uiManager.showNotification("SCRIPT AKTIF:\n" + cardData.description);
                     screen.phaseManager.useRam(cardData.ramCost);
                     screen.hand.removeValue(newCard, true);
                     screen.updateHandPositions();
@@ -330,9 +334,18 @@ public class CardInteractionHandler {
                     // Simpan di koordinat DropZone, TAPI rekam dengan nama jalur asli
                     screen.placeCardInSlot(newCard, actualLaneName, getActor());
 
-                    for (CardActor ally : screen.activeCards.values()) {
+                    screen.placeCardInSlot(newCard, actualLaneName, getActor());
+                    com.badlogic.gdx.utils.Array<CardActor> alliesToNotify = screen.activeCards.values().toArray();
+                    for (CardActor ally : alliesToNotify) {
                         if (ally.getData().abilities != null) {
                             for (com.NCFrontend.logic.CardAbility ability : ally.getData().abilities) ability.onCardDeployed(ally, newCard, actualLaneName, screen);
+                        }
+                    }
+
+                    com.badlogic.gdx.utils.Array<CardActor> enemiesToNotify = screen.enemyActiveCards.values().toArray();
+                    for (CardActor enemy : enemiesToNotify) {
+                        if (enemy.getData().abilities != null) {
+                            for (com.NCFrontend.logic.CardAbility ability : enemy.getData().abilities) ability.onCardDeployed(enemy, newCard, actualLaneName, screen);
                         }
                     }
                 }

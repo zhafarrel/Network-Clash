@@ -58,23 +58,27 @@ public class GameplayScreen extends ScreenAdapter {
     public CardInteractionHandler interactionHandler;
     public EnemyAIManager enemyAI;
 
-    public GameplayScreen() {
+    public GameplayScreen(String chosenFaction) {
         stage = new Stage(new ScreenViewport());
         Gdx.input.setInputProcessor(stage);
 
-        // INISIALISASI PROFIL PEMAIN DAN MUSUH SAAT GAME DIMULAI (Darah Awal 50)
-        playerProfile = new PlayerData("Pemain 1", "Sysadmin", 50);
-        enemyProfile = new PlayerData("O.M.E.G.A AI", "OMEGA", 50);
+        // Tentukan musuhnya siapa berdasarkan pilihan pemain
+        String enemyFaction = chosenFaction.equals("Sysadmin") ? "OMEGA" : "Sysadmin";
+
+        // INISIALISASI PROFIL SESUAI PILIHAN
+        playerProfile = new PlayerData("Pemain 1", chosenFaction, 50);
+        enemyProfile = new PlayerData("AI Musuh", enemyFaction, 50);
 
         // Inisialisasi Manager
         phaseManager = new GamePhaseManager(this);
         uiManager = new UIManager(this);
         interactionHandler = new CardInteractionHandler(this);
-        enemyAI = new EnemyAIManager(this); // Inisialisasi AI Musuh
+        enemyAI = new EnemyAIManager(this);
     }
 
     @Override
     public void show() {
+        com.badlogic.gdx.Gdx.input.setInputProcessor(stage);
         try {
             Texture bgTex = new Texture(Gdx.files.internal("images/pseudo_3d_lanes.png"));
             Image background = new Image(bgTex);
@@ -129,14 +133,19 @@ public class GameplayScreen extends ScreenAdapter {
                         visualCard.isFaceUp = false;
                         visualCard.setScale(0.5f);
 
-                        // Pengecekan Faction (OMEGA vs SYSADMIN)
-                        if (visualCard.getData().faction.equalsIgnoreCase("OMEGA")) {
-                            visualCard.setPosition(1500, 800); // Taruh deck musuh di luar layar atas
-                            enemyDeck.add(visualCard);
-                        } else {
+                        // === UPDATE PENGECEKAN FACTION DINAMIS ===
+                        String cardFaction = visualCard.getData().faction;
+
+                        // Jika fraksi kartu SAMA dengan fraksi pilihan pemain
+                        if (cardFaction.equalsIgnoreCase(playerProfile.faction)) {
                             visualCard.setPosition(50, 350); // Taruh di deck pemain
                             deck.add(visualCard);
-                            interactionHandler.registerCard(visualCard); // Hanya daftarkan kartu pemain untuk di-drag
+                            interactionHandler.registerCard(visualCard); // Daftarkan kartu pemain
+                        }
+                        // Jika bukan, berarti milik musuh
+                        else {
+                            visualCard.setPosition(1500, 800); // Taruh deck musuh di luar layar atas
+                            enemyDeck.add(visualCard);
                         }
 
                         stage.addActor(visualCard);
@@ -312,11 +321,26 @@ public class GameplayScreen extends ScreenAdapter {
         Gdx.app.log("Mulligan", "Deck Pemain berhasil diurutkan untuk tangan awal yang mulus!");
     }
 
+    public void checkGameOver() {
+        // Trik LibGDX: Mengambil akses "Sang Sutradara" (Main Game Class) dari mana saja
+        com.badlogic.gdx.Game game = (com.badlogic.gdx.Game) Gdx.app.getApplicationListener();
+
+        if (playerProfile.hp <= 0) {
+            Gdx.app.log("Game", "Pemain Kalah!");
+            game.setScreen(new MatchResultScreen(game, false)); // false = Kalah
+        }
+        else if (enemyProfile.hp <= 0) {
+            Gdx.app.log("Game", "Pemain Menang!");
+            game.setScreen(new MatchResultScreen(game, true));  // true = Menang
+        }
+    }
+
     @Override public void render(float delta) {
         Gdx.gl.glClearColor(0, 0, 0, 1f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
         stage.act(delta);
         stage.draw();
+        checkGameOver();
     }
 
     @Override public void resize(int width, int height) { stage.getViewport().update(width, height, true); }

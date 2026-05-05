@@ -68,7 +68,7 @@ public class CardActor extends Group {
 
         illustration = new Image(illustrationTex);
         illustration.setSize(getWidth(), getHeight());
-        illustration.setColor(0.3f, 0.3f, 0.3f, 1f);
+        illustration.setColor(1f, 1f, 1f, 1f);
         this.addActor(illustration);
 
         try {
@@ -101,11 +101,17 @@ public class CardActor extends Group {
             illustration.setColor(0.1f, 0.1f, 0.1f, 1f);
             if (frame != null) frame.setColor(0.4f, 0.4f, 0.4f, 1f);
         } else {
-            illustration.setColor(0.3f, 0.3f, 0.3f, 1f);
+            illustration.setColor(1f, 1f, 1f, 1f);
             if (frame != null) frame.setColor(1f, 1f, 1f, 1f);
         }
 
+        Color oldBatchColor = batch.getColor();
+        batch.setColor(1f, 1f, 1f, this.getColor().a * parentAlpha);
+
         super.draw(batch, parentAlpha);
+
+        batch.setColor(oldBatchColor);
+
         if (!isFaceUp) return;
 
         batch.flush();
@@ -125,37 +131,43 @@ public class CardActor extends Group {
         float oldScaleY = font.getData().scaleY;
 
         try {
-            // A. RAM COST
-            font.getData().setScale(1.0f);
+            // A. RAM COST - Digeser ke Atas Kiri agar masuk ke Hexagon
+            font.getData().setScale(1.1f);
             font.setColor(Color.CYAN);
-            font.draw(batch, String.valueOf(data.ramCost), 18, h - 15);
+            font.draw(batch, String.valueOf(data.ramCost), 20, h - 30);
 
-            // B. TIPE KARTU
+            // B. TIPE KARTU - Fix Logic menggunakan Faction!
             String cardType = "UNKNOWN";
-            if (data instanceof ScriptData) cardType = "SCRIPT";
-            else if (data instanceof ProgramData) cardType = "PROGRAM";
-            else cardType = "MALWARE";
+            if (data instanceof ScriptData) {
+                cardType = "SCRIPT";
+            } else {
+                // Karena wadahnya sama-sama ProgramData, kita bedakan lewat faksi
+                if (data.faction != null && data.faction.equalsIgnoreCase("OMEGA")) {
+                    cardType = "MALWARE";
+                } else {
+                    cardType = "PROGRAM";
+                }
+            }
 
             font.setColor(Color.LIGHT_GRAY);
             font.getData().setScale(0.85f);
-            font.draw(batch, cardType, 0, h - 15, w, Align.center, false);
+            font.draw(batch, cardType, 0, h - 25, w, Align.center, false);
 
             // C. NAMA KARTU
             font.setColor(Color.YELLOW);
             font.getData().setScale(1.0f);
-            font.draw(batch, data.name.toUpperCase(), 0, 155, w, Align.center, false);
+            font.draw(batch, data.name.toUpperCase(), 0, 115, w, Align.center, false);
 
             // D. DESKRIPSI
             font.setColor(Color.WHITE);
             font.getData().setScale(0.8f);
             String desc = data.description;
             if (desc != null && !desc.isEmpty()) {
-                font.draw(batch, desc, 25, 125, w - 50, Align.center, true);
+                font.draw(batch, desc, 20, 85, w - 40, Align.center, true);
             }
 
             // E. VISUAL TOMBOL EXECUTE
             boolean hasExecute = desc != null && desc.contains("(EXECUTE)");
-
             if (isOnBoard && hasExecute && !isFlooped) {
                 float btnW = 100; float btnH = 26;
                 float btnX = (w - btnW) / 2f; float btnY = 65;
@@ -185,31 +197,30 @@ public class CardActor extends Group {
             }
 
             if (hasStats) {
-                // Di tangan (Statistik Kecil di bawah ilustrasi)
-                font.getData().setScale(1.1f);
+                font.getData().setScale(1.2f);
+
+                // ATK - Digeser jauh ke Kiri agar pas di tengah pedang
                 font.setColor(Color.ORANGE);
-                font.draw(batch, String.valueOf(atk), 25, 35);
+                font.draw(batch, String.valueOf(atk), 20, 38);
+
+                // HP - Digeser jauh ke Kanan agar pas di tengah hati
                 font.setColor(Color.LIME);
-                font.draw(batch, String.valueOf(hp), w - 55, 35);
+                font.draw(batch, String.valueOf(hp), w - 30, 38);
 
                 // G. STATISTIK FLOATING DI LUAR KARTU (Saat di Arena)
                 if (isOnBoard) {
                     font.getData().setScale(4.0f);
 
-                    // -- BAGIAN KIRI: [Ikon Pedang] [Angka ATK] --
                     batch.setColor(Color.WHITE);
-                    // Ikon diperbesar jadi 60x60, posisi Y sejajar dengan teks
-                    batch.draw(swordIcon, -95, h - 60, 60, 60);
+                    batch.draw(swordIcon, -110, h -80, 60, 60);
 
                     font.setColor(Color.WHITE);
                     font.draw(batch, String.valueOf(atk), -30, h - 15);
 
-                    // -- BAGIAN KANAN: [Angka HP] [Ikon Hati] --
                     font.setColor(Color.RED);
-                    font.draw(batch, String.valueOf(hp), w + 15, h - 15);
+                    font.draw(batch, String.valueOf(hp), w + 30, h - 30);
 
                     batch.setColor(Color.WHITE);
-                    // Cek jika HP puluhan, geser ikon hati agak ke kanan agar tidak tabrakan dengan angka
                     float heartOffsetX = (hp > 9) ? w + 85 : w + 60;
                     batch.draw(heartIcon, heartOffsetX, h - 60, 60, 60);
                 }

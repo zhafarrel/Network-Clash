@@ -13,18 +13,24 @@ public class RerouteTrafficAbility implements CardAbility {
     public void onFloop(CardActor owner, GameplayScreen screen) {
         boolean isPlayer = screen.activeCards.containsValue(owner, true);
         ObjectMap<String, CardActor> board = isPlayer ? screen.activeCards : screen.enemyActiveCards;
-        String[] lanes = {"Localhost", "Cloud Storage", "DMZ", "Dark Node"};
+
+        // --- PERBAIKAN: BACA DARI JALUR DINAMIS FISIK ---
+        String[] lanes = screen.boardLanes;
 
         int myIdx = -1;
         for (int i = 0; i < lanes.length; i++) {
-            if (board.get(lanes[i]) == owner) myIdx = i;
+            // Tambahkan pengecekan null agar aman
+            if (lanes[i] != null && board.get(lanes[i]) == owner) {
+                myIdx = i;
+                break;
+            }
         }
 
-        // Cek apakah ada teman di sebelah kanan atau kiri
+        // Cek apakah ada teman di sebelah kiri atau kanan secara FISIK
         int targetIdx = -1;
-        if (myIdx > 0 && board.containsKey(lanes[myIdx - 1])) {
+        if (myIdx > 0 && lanes[myIdx - 1] != null && board.containsKey(lanes[myIdx - 1])) {
             targetIdx = myIdx - 1; // Prioritas tukar dengan kiri
-        } else if (myIdx < lanes.length - 1 && board.containsKey(lanes[myIdx + 1])) {
+        } else if (myIdx < lanes.length - 1 && lanes[myIdx + 1] != null && board.containsKey(lanes[myIdx + 1])) {
             targetIdx = myIdx + 1; // Kalau kiri kosong, tukar dengan kanan
         }
 
@@ -41,12 +47,29 @@ public class RerouteTrafficAbility implements CardAbility {
             float myOrigX = owner.getX();
             float neighborOrigX = neighbor.getX();
 
-            owner.addAction(Actions.moveTo(neighborOrigX, owner.getY(), 0.4f, Interpolation.pow2Out));
-            neighbor.addAction(Actions.moveTo(myOrigX, neighbor.getY(), 0.4f, Interpolation.pow2Out));
+            owner.clearActions();
+            neighbor.clearActions();
+
+            // Angkat kartu sedikit saat bertukar agar terlihat elegan
+            owner.toFront();
+            owner.addAction(Actions.sequence(
+                Actions.moveBy(0, 30, 0.1f),
+                Actions.moveTo(neighborOrigX, owner.getY() + 30, 0.4f, Interpolation.pow2Out),
+                Actions.moveBy(0, -30, 0.1f)
+            ));
+
+            neighbor.addAction(Actions.sequence(
+                Actions.moveBy(0, -30, 0.1f),
+                Actions.moveTo(myOrigX, neighbor.getY() - 30, 0.4f, Interpolation.pow2Out),
+                Actions.moveBy(0, 30, 0.1f)
+            ));
 
             Gdx.app.log("Skill", "REROUTE TRAFFIC! Bertukar posisi dengan " + neighbor.getData().name);
+            screen.uiManager.showNotification("REROUTE TRAFFIC:\nBertukar dengan " + neighbor.getData().name);
+
         } else {
             Gdx.app.log("Skill", "REROUTE TRAFFIC gagal: Tidak ada kawan di sebelah.");
+            screen.uiManager.showNotification("REROUTE GAGAL:\nTidak ada target di sebelah!");
         }
     }
 }

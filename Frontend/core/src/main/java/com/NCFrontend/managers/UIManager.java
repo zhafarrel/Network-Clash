@@ -254,4 +254,55 @@ public class UIManager {
             }
         });
     }
+
+    public void showNotification(String message) {
+        // 1. Hapus notifikasi lama jika ada yang menumpuk
+        com.badlogic.gdx.scenes.scene2d.Actor oldNotif = screen.stage.getRoot().findActor("NOTIFICATION_POPUP");
+        if (oldNotif != null) {
+            oldNotif.addAction(com.badlogic.gdx.scenes.scene2d.actions.Actions.removeActor());
+        }
+
+        // 2. Buat background hitam semi-transparan
+        com.badlogic.gdx.graphics.Pixmap pixmap = new com.badlogic.gdx.graphics.Pixmap(1, 1, com.badlogic.gdx.graphics.Pixmap.Format.RGBA8888);
+        pixmap.setColor(new com.badlogic.gdx.graphics.Color(0, 0, 0, 0.85f));
+        pixmap.fill();
+        com.badlogic.gdx.graphics.Texture bgTex = new com.badlogic.gdx.graphics.Texture(pixmap);
+        pixmap.dispose();
+
+        // 3. Setup Teks
+        com.badlogic.gdx.graphics.g2d.BitmapFont font = new com.badlogic.gdx.graphics.g2d.BitmapFont();
+        font.getData().setScale(1.2f); // Perkecil sedikit agar deskripsi panjang muat
+        com.badlogic.gdx.scenes.scene2d.ui.Label.LabelStyle style = new com.badlogic.gdx.scenes.scene2d.ui.Label.LabelStyle(font, com.badlogic.gdx.graphics.Color.CYAN);
+        com.badlogic.gdx.scenes.scene2d.ui.Label label = new com.badlogic.gdx.scenes.scene2d.ui.Label(message, style);
+        label.setAlignment(com.badlogic.gdx.utils.Align.center);
+
+        // --- TAMBAHAN BARU: AGAR TEKS PANJANG TURUN KE BAWAH ---
+        label.setWrap(true);
+
+        // 4. Masukkan ke dalam Table (Kotak)
+        com.badlogic.gdx.scenes.scene2d.ui.Table table = new com.badlogic.gdx.scenes.scene2d.ui.Table();
+        table.setName("NOTIFICATION_POPUP");
+        table.setBackground(new com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable(new com.badlogic.gdx.graphics.g2d.TextureRegion(bgTex)));
+
+        // --- TAMBAHAN BARU: BERI BATAS LEBAR MAKSIMAL (misal 600 pixel) ---
+        table.add(label).width(600).pad(15).padLeft(30).padRight(30);
+        table.pack();
+
+        // Posisikan di tengah atas layar
+        table.setPosition(
+            (com.badlogic.gdx.Gdx.graphics.getWidth() - table.getWidth()) / 2f,
+            com.badlogic.gdx.Gdx.graphics.getHeight() - table.getHeight() - 50
+        );
+
+        // 5. Animasi Muncul -> Diam 5 Detik -> Menghilang
+        table.getColor().a = 0f; // Mulai dengan transparan
+        table.addAction(com.badlogic.gdx.scenes.scene2d.actions.Actions.sequence(
+            com.badlogic.gdx.scenes.scene2d.actions.Actions.fadeIn(0.3f),
+            com.badlogic.gdx.scenes.scene2d.actions.Actions.delay(4.5f), // Tahan selama ~5 detik
+            com.badlogic.gdx.scenes.scene2d.actions.Actions.fadeOut(0.5f),
+            com.badlogic.gdx.scenes.scene2d.actions.Actions.removeActor()
+        ));
+
+        screen.stage.addActor(table);
+    }
 }
