@@ -420,6 +420,25 @@ public class CombatResolver {
             }
 
             screen.uiManager.updateHP();
+
+            if (attacker.getData().abilities != null) {
+                for (CardAbility ability : attacker.getData().abilities) {
+                    if (ability instanceof com.NCFrontend.logic.abilities.PopUpAbility) {
+                        Gdx.app.log("Combat", "POP-UP AKTIF! Menarik 1 kartu tambahan karena serangan langsung sukses.");
+
+                        if (isPlayerAttacking) {
+                            // Pemain (Sysadmin/Malware) menarik kartu
+                            screen.drawCard();
+                        } else {
+                            // AI Musuh menarik kartu secara virtual
+                            if (screen.enemyDeck.size > 0 && screen.enemyHand.size < screen.MAX_HAND_SIZE) {
+                                CardActor drawnCard = screen.enemyDeck.pop();
+                                screen.enemyHand.add(drawnCard);
+                            }
+                        }
+                    }
+                }
+            }
             return isGameOver;
         }
     }

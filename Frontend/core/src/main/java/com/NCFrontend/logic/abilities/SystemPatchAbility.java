@@ -8,13 +8,16 @@ import com.NCFrontend.ui.CardActor;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.scenes.scene2d.actions.Actions;
+import com.badlogic.gdx.utils.ObjectMap;
 
 public class SystemPatchAbility implements CardAbility {
     @Override
     public void onPlayScript(CardActor owner, String targetLane, GameplayScreen screen) {
-        // Karena ini kartu Sysadmin, kita cari teman di papan kita sendiri
-        if (screen.activeCards.containsKey(targetLane)) {
-            CardActor target = screen.activeCards.get(targetLane);
+        boolean isPlayer = screen.phaseManager.currentPhase == com.NCFrontend.managers.GamePhaseManager.GamePhase.PLAYER_MAIN;
+        ObjectMap<String, CardActor> myBoard = isPlayer ? screen.activeCards : screen.enemyActiveCards;
+
+        if (myBoard.containsKey(targetLane)) {
+            CardActor target = myBoard.get(targetLane);
 
             if (target.getData() instanceof ProgramData) {
                 ProgramData pData = (ProgramData) target.getData();

@@ -20,11 +20,15 @@ public class CardActor extends Group {
     private BaseCard data;
     private Image illustration;
     private Image frame;
+    private Image cardBack; // TAMBAHAN: Menyimpan gambar bagian belakang kartu
     private BitmapFont font;
+
+    public Texture illustrationTexture; // Dibutuhkan untuk UI Popup Inspect
 
     private static Texture executeBtnTex;
     private static Texture swordIcon;
     private static Texture heartIcon;
+    private static Texture cardBackTex; // TAMBAHAN: Tekstur belakang kartu
 
     public boolean isFaceUp = true;
     public boolean isFlooped = false;
@@ -34,6 +38,7 @@ public class CardActor extends Group {
 
     public CardActor(BaseCard data, Texture illustrationTex) {
         this.data = data;
+        this.illustrationTexture = illustrationTex;
 
         this.setSize(210, 300);
         this.setOrigin(getWidth() / 2f, getHeight() / 2f);
@@ -64,6 +69,18 @@ public class CardActor extends Group {
                 heartIcon = new Texture(pix); pix.dispose();
             }
         }
+
+        // --- INIT BAGIAN BELAKANG KARTU ---
+        if (cardBackTex == null) {
+            try {
+                // Pastikan nama filenya "Backside.png"
+                cardBackTex = new Texture(Gdx.files.internal("images/Backside.png"));
+            } catch (Exception e) {
+                Pixmap pix = new Pixmap((int)getWidth(), (int)getHeight(), Pixmap.Format.RGBA8888);
+                pix.setColor(Color.DARK_GRAY); pix.fill();
+                cardBackTex = new Texture(pix); pix.dispose();
+            }
+        }
         // ------------------------------------
 
         illustration = new Image(illustrationTex);
@@ -79,6 +96,11 @@ public class CardActor extends Group {
         } catch (Exception e) {
             Gdx.app.log("CardActor", "Frame belum ada.");
         }
+
+        // TAMBAHKAN GAMBAR BACKSIDE KE DALAM GROUP
+        cardBack = new Image(cardBackTex);
+        cardBack.setSize(getWidth(), getHeight());
+        this.addActor(cardBack);
 
         FreeTypeFontGenerator generator = new FreeTypeFontGenerator(Gdx.files.internal("fonts/cyber.otf"));
         FreeTypeFontParameter parameter = new FreeTypeFontParameter();
@@ -97,12 +119,16 @@ public class CardActor extends Group {
 
     @Override
     public void draw(Batch batch, float parentAlpha) {
+        // --- LOGIKA VISIBILITAS KARTU ---
+        // Jika telungkup (isFaceUp = false), sembunyikan gambar asli dan munculkan Backside!
         if (!isFaceUp) {
-            illustration.setColor(0.1f, 0.1f, 0.1f, 1f);
-            if (frame != null) frame.setColor(0.4f, 0.4f, 0.4f, 1f);
+            illustration.setVisible(false);
+            if (frame != null) frame.setVisible(false);
+            cardBack.setVisible(true);
         } else {
-            illustration.setColor(1f, 1f, 1f, 1f);
-            if (frame != null) frame.setColor(1f, 1f, 1f, 1f);
+            illustration.setVisible(true);
+            if (frame != null) frame.setVisible(true);
+            cardBack.setVisible(false);
         }
 
         Color oldBatchColor = batch.getColor();
@@ -112,6 +138,7 @@ public class CardActor extends Group {
 
         batch.setColor(oldBatchColor);
 
+        // Jika kartu sedang telungkup, jangan gambar teks apapun di atasnya!
         if (!isFaceUp) return;
 
         batch.flush();
@@ -131,17 +158,16 @@ public class CardActor extends Group {
         float oldScaleY = font.getData().scaleY;
 
         try {
-            // A. RAM COST - Digeser ke Atas Kiri agar masuk ke Hexagon
+            // A. RAM COST
             font.getData().setScale(1.1f);
             font.setColor(Color.CYAN);
-            font.draw(batch, String.valueOf(data.ramCost), 20, h - 30);
+            font.draw(batch, String.valueOf(data.ramCost), 6, h - 28, 40, Align.center, false);
 
-            // B. TIPE KARTU - Fix Logic menggunakan Faction!
+            // B. TIPE KARTU
             String cardType = "UNKNOWN";
             if (data instanceof ScriptData) {
                 cardType = "SCRIPT";
             } else {
-                // Karena wadahnya sama-sama ProgramData, kita bedakan lewat faksi
                 if (data.faction != null && data.faction.equalsIgnoreCase("OMEGA")) {
                     cardType = "MALWARE";
                 } else {
@@ -167,7 +193,7 @@ public class CardActor extends Group {
             }
 
             // E. VISUAL TOMBOL EXECUTE
-            boolean hasExecute = desc != null && desc.contains("(EXECUTE)");
+            boolean hasExecute = desc != null && desc.toUpperCase().contains("EXECUTE");
             if (isOnBoard && hasExecute && !isFlooped) {
                 float btnW = 100; float btnH = 26;
                 float btnX = (w - btnW) / 2f; float btnY = 65;
@@ -199,13 +225,13 @@ public class CardActor extends Group {
             if (hasStats) {
                 font.getData().setScale(1.2f);
 
-                // ATK - Digeser jauh ke Kiri agar pas di tengah pedang
+                // ATK
                 font.setColor(Color.ORANGE);
-                font.draw(batch, String.valueOf(atk), 20, 38);
+                font.draw(batch, String.valueOf(atk), 0, 38, 50, Align.center, false);
 
-                // HP - Digeser jauh ke Kanan agar pas di tengah hati
+                // HP
                 font.setColor(Color.LIME);
-                font.draw(batch, String.valueOf(hp), w - 30, 38);
+                font.draw(batch, String.valueOf(hp), w - 50, 38, 50, Align.center, false);
 
                 // G. STATISTIK FLOATING DI LUAR KARTU (Saat di Arena)
                 if (isOnBoard) {

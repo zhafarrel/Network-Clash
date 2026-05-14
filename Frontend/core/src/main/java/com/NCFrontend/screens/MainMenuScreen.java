@@ -98,9 +98,8 @@ public class MainMenuScreen extends ScreenAdapter {
         playBtn.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
-                Gdx.app.log("Menu", "Berpindah ke Gameplay sebagai: " + selectedFaction);
-                // UPDATE: Kirim 'selectedFaction' ke dalam GameplayScreen!
-                game.setScreen(new GameplayScreen(selectedFaction));
+                Gdx.app.log("Menu", "Berpindah ke Deck Builder sebagai: " + selectedFaction);
+                game.setScreen(new DeckBuilderScreen(game, selectedFaction));
             }
         });
         stage.addActor(playBtn);

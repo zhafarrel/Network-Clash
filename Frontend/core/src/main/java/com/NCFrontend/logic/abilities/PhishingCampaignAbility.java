@@ -10,7 +10,7 @@ import com.badlogic.gdx.scenes.scene2d.actions.Actions;
 public class PhishingCampaignAbility implements CardAbility {
     @Override
     public void onPlayScript(CardActor owner, String targetLane, GameplayScreen screen) {
-        boolean isPlayer = screen.hand.contains(owner, true);
+        boolean isPlayer = screen.phaseManager.currentPhase == com.NCFrontend.managers.GamePhaseManager.GamePhase.PLAYER_MAIN;
         com.badlogic.gdx.utils.Array<CardActor> targetHand = isPlayer ? screen.enemyHand : screen.hand;
 
         if (targetHand.size > 0) {

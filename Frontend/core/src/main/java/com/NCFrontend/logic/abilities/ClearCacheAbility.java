@@ -11,7 +11,7 @@ import com.badlogic.gdx.utils.ObjectMap;
 public class ClearCacheAbility implements CardAbility {
     @Override
     public void onPlayScript(CardActor owner, String targetLane, GameplayScreen screen) {
-        boolean isPlayer = screen.hand.contains(owner, true) || owner.isOnBoard; // Deteksi siapa pemakainya
+        boolean isPlayer = screen.phaseManager.currentPhase == com.NCFrontend.managers.GamePhaseManager.GamePhase.PLAYER_MAIN;
         ObjectMap<String, CardActor> myBoard = isPlayer ? screen.activeCards : screen.enemyActiveCards;
 
         Gdx.app.log("Script", "CLEAR CACHE! Membersihkan semua debuff dan stun dari kawan.");

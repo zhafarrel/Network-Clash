@@ -8,6 +8,8 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.utils.ObjectMap;
 
 public class ExecuteOrderAbility implements CardAbility {
+    private com.badlogic.gdx.utils.Array<ProgramData> buffedTargets = new com.badlogic.gdx.utils.Array<>();
+
     @Override
     public void onFloop(CardActor owner, GameplayScreen screen) {
         boolean isPlayer = screen.activeCards.containsValue(owner, true);
@@ -18,7 +20,8 @@ public class ExecuteOrderAbility implements CardAbility {
         for (CardActor ally : allyBoard.values()) {
             if (ally.getData() instanceof ProgramData) {
                 ProgramData pData = (ProgramData) ally.getData();
-                pData.atk += 1; // Beri permanen +1 ATK
+                pData.atk += 1; // Beri +1 ATK sementara
+                buffedTargets.add(pData);
 
                 // Tambahkan efek membesar sedikit sebagai tanda buff
                 ally.addAction(com.badlogic.gdx.scenes.scene2d.actions.Actions.sequence(
@@ -27,5 +30,14 @@ public class ExecuteOrderAbility implements CardAbility {
                 ));
             }
         }
+    }
+
+    @Override
+    public void onTurnEnd(CardActor owner, GameplayScreen screen) {
+        for (ProgramData pData : buffedTargets) {
+            pData.atk -= 1;
+        }
+        buffedTargets.clear();
+        Gdx.app.log("Skill", "EXECUTE ORDER: Efek buff berakhir.");
     }
 }

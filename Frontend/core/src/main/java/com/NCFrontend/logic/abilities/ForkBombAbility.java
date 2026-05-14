@@ -12,11 +12,15 @@ import com.badlogic.gdx.utils.ObjectMap;
 public class ForkBombAbility implements CardAbility {
     @Override
     public void onPlayScript(CardActor owner, String targetLane, GameplayScreen screen) {
-        Gdx.app.log("Script", "FORK BOMB! Menyapu bersih papan Sysadmin dengan 1 Damage.");
+        Gdx.app.log("Script", "FORK BOMB DIMAINKAN!");
         boolean isAnyKilled = false;
 
-        // Targetnya selalu papan Sysadmin (Pemain)
-        ObjectMap<String, CardActor> targetBoard = screen.activeCards;
+        // 1. CEK KEPEMILIKAN: Apakah kartu ini dimainkan oleh Pemain atau AI Musuh?
+        boolean isPlayerCasting = screen.phaseManager.currentPhase == com.NCFrontend.managers.GamePhaseManager.GamePhase.PLAYER_MAIN;
+
+        // 2. TENTUKAN TARGET PAPAN SECARA DINAMIS
+        // Jika pemain yang mainkan, targetnya enemyActiveCards. Jika AI yang mainkan, targetnya activeCards.
+        ObjectMap<String, CardActor> targetBoard = isPlayerCasting ? screen.enemyActiveCards : screen.activeCards;
 
         // Salin ke array agar aman saat menghapus kartu yang mati dari ObjectMap
         com.badlogic.gdx.utils.Array<CardActor> targets = new com.badlogic.gdx.utils.Array<>();
@@ -47,10 +51,15 @@ public class ForkBombAbility implements CardAbility {
             }
         }
 
-        // Reward +1 RAM jika ada yang tewas
+        // 3. BERIKAN REWARD RAM KE PIHAK YANG BENAR
         if (isAnyKilled) {
-            screen.enemyProfile.currentRam = Math.min(screen.enemyProfile.currentRam + 1, screen.enemyProfile.maxRam);
-            Gdx.app.log("Script", "FORK BOMB membunuh target! O.M.E.G.A mendapat kembali +1 RAM.");
+            if (isPlayerCasting) {
+                screen.playerProfile.currentRam = Math.min(screen.playerProfile.currentRam + 1, screen.playerProfile.maxRam);
+                Gdx.app.log("Script", "FORK BOMB membunuh target! PEMAIN mendapat kembali +1 RAM.");
+            } else {
+                screen.enemyProfile.currentRam = Math.min(screen.enemyProfile.currentRam + 1, screen.enemyProfile.maxRam);
+                Gdx.app.log("Script", "FORK BOMB membunuh target! MUSUH mendapat kembali +1 RAM.");
+            }
         }
     }
 }

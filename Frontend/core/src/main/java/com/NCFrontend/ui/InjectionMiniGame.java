@@ -9,6 +9,8 @@ import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.actions.Actions;
+import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 
@@ -24,6 +26,12 @@ public class InjectionMiniGame extends Group {
         this.onComplete = onComplete;
 
         this.setSize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+
+        Texture dimBlack = createColorTexture(new Color(0, 0, 0, 0.5f));
+        Image bgScreen = new Image(dimBlack);
+        bgScreen.setSize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        bgScreen.setPosition(0, 0);
+        addActor(bgScreen); // Full screen background to catch clicks
 
         trackGroup = new Group();
         float barWidth = 600f;
@@ -89,6 +97,12 @@ public class InjectionMiniGame extends Group {
             Actions.moveTo(barWidth - cursorImage.getWidth(), -10, duration, Interpolation.sine),
             Actions.moveTo(0, -10, duration, Interpolation.sine)
         )));
+
+        Label.LabelStyle labelStyle = new Label.LabelStyle(new BitmapFont(), Color.WHITE);
+        Label instructionLabel = new Label("CLICK ANYWHERE TO STOP!", labelStyle);
+        instructionLabel.setFontScale(2.0f);
+        instructionLabel.setPosition((getWidth() - instructionLabel.getPrefWidth() * 2.0f) / 2f, (getHeight() + barHeight) / 2f + 50f);
+        addActor(instructionLabel);
 
         this.addListener(new ClickListener() {
             @Override

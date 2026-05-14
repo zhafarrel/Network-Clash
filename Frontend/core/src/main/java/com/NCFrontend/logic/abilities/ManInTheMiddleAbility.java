@@ -11,13 +11,14 @@ import com.badlogic.gdx.utils.ObjectMap;
 public class ManInTheMiddleAbility implements CardAbility {
     @Override
     public void onPlayScript(CardActor owner, String targetLane, GameplayScreen screen) {
-        boolean isPlayer = screen.hand.contains(owner, true);
+        boolean isPlayer = screen.phaseManager.currentPhase == com.NCFrontend.managers.GamePhaseManager.GamePhase.PLAYER_MAIN;
         ObjectMap<String, CardActor> targetBoard = isPlayer ? screen.enemyActiveCards : screen.activeCards;
 
         if (targetBoard.containsKey(targetLane)) {
             CardActor target = targetBoard.get(targetLane);
 
             target.isStunned = true; // Beri status STUN
+            target.isFlooped = true; // Kunci kemampuan Floop
 
             Gdx.app.log("Script", "MAN-IN-THE-MIDDLE! Mengunci " + target.getData().name);
 

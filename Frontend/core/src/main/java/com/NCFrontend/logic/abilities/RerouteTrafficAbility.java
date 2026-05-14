@@ -9,67 +9,88 @@ import com.badlogic.gdx.scenes.scene2d.actions.Actions;
 import com.badlogic.gdx.utils.ObjectMap;
 
 public class RerouteTrafficAbility implements CardAbility {
+
     @Override
     public void onFloop(CardActor owner, GameplayScreen screen) {
         boolean isPlayer = screen.activeCards.containsValue(owner, true);
-        ObjectMap<String, CardActor> board = isPlayer ? screen.activeCards : screen.enemyActiveCards;
+        ObjectMap<String, CardActor> myBoard = isPlayer ? screen.activeCards : screen.enemyActiveCards;
 
-        // --- PERBAIKAN: BACA DARI JALUR DINAMIS FISIK ---
-        String[] lanes = screen.boardLanes;
-
-        int myIdx = -1;
-        for (int i = 0; i < lanes.length; i++) {
-            // Tambahkan pengecekan null agar aman
-            if (lanes[i] != null && board.get(lanes[i]) == owner) {
-                myIdx = i;
+        // 1. CARI POSISI (INDEX) DARI LOAD BALANCER
+        int ownerIndex = -1;
+        String ownerLane = null;
+        for (int i = 0; i < screen.boardLanes.length; i++) {
+            String laneName = screen.boardLanes[i];
+            if (laneName != null && myBoard.get(laneName) == owner) {
+                ownerIndex = i;
+                ownerLane = laneName;
                 break;
             }
         }
 
-        // Cek apakah ada teman di sebelah kiri atau kanan secara FISIK
-        int targetIdx = -1;
-        if (myIdx > 0 && lanes[myIdx - 1] != null && board.containsKey(lanes[myIdx - 1])) {
-            targetIdx = myIdx - 1; // Prioritas tukar dengan kiri
-        } else if (myIdx < lanes.length - 1 && lanes[myIdx + 1] != null && board.containsKey(lanes[myIdx + 1])) {
-            targetIdx = myIdx + 1; // Kalau kiri kosong, tukar dengan kanan
+        if (ownerIndex == -1) {
+            Gdx.app.log("Skill", "REROUTE TRAFFIC gagal: Load Balancer tidak ditemukan di papan.");
+            return;
         }
 
-        if (targetIdx != -1) {
-            String myLane = lanes[myIdx];
-            String targetLane = lanes[targetIdx];
-            CardActor neighbor = board.get(targetLane);
+        // 2. CARI SEKUTU DI JALUR BERSEBELAHAN (KIRI ATAU KANAN)
+        int targetIndex = -1;
+        String targetLane = null;
+        CardActor targetAlly = null;
 
-            // 1. Tukar Posisi di Data (ObjectMap)
-            board.put(myLane, neighbor);
-            board.put(targetLane, owner);
+        // Prioritas cek Kiri dulu
+        if (ownerIndex > 0) {
+            String leftLane = screen.boardLanes[ownerIndex - 1];
+            if (leftLane != null && myBoard.containsKey(leftLane)) {
+                targetLane = leftLane;
+                targetIndex = ownerIndex - 1;
+                targetAlly = myBoard.get(leftLane);
+            }
+        }
 
-            // 2. Tukar Posisi Visual di Layar secara halus
-            float myOrigX = owner.getX();
-            float neighborOrigX = neighbor.getX();
+        // Jika di kiri kosong/tidak ada teman, cek Kanan
+        if (targetAlly == null && ownerIndex < screen.boardLanes.length - 1) {
+            String rightLane = screen.boardLanes[ownerIndex + 1];
+            if (rightLane != null && myBoard.containsKey(rightLane)) {
+                targetLane = rightLane;
+                targetIndex = ownerIndex + 1;
+                targetAlly = myBoard.get(rightLane);
+            }
+        }
 
-            owner.clearActions();
-            neighbor.clearActions();
+        // 3. JIKA KETEMU TEMAN, LAKUKAN SWAP!
+        if (targetAlly != null) {
+            Gdx.app.log("Skill", "REROUTE TRAFFIC! Bertukar posisi dengan " + targetAlly.getData().name);
 
-            // Angkat kartu sedikit saat bertukar agar terlihat elegan
+            // A. Tukar posisi kepemilikan di otak Game (ObjectMap)
+            myBoard.put(ownerLane, targetAlly);
+            myBoard.put(targetLane, owner);
+
+            // B. Tukar posisi visual menggunakan Animasi (Tanpa merusak Stage)
+            float ownerX = owner.getX();
+            float ownerY = owner.getY();
+            float targetX = targetAlly.getX();
+            float targetY = targetAlly.getY();
+
+            // Bawa keduanya ke depan agar tidak tertutup kartu lain saat animasi lompat
             owner.toFront();
+            targetAlly.toFront();
+
+            // Animasi Load Balancer melompat ke atas, lalu geser ke slot baru
             owner.addAction(Actions.sequence(
-                Actions.moveBy(0, 30, 0.1f),
-                Actions.moveTo(neighborOrigX, owner.getY() + 30, 0.4f, Interpolation.pow2Out),
-                Actions.moveBy(0, -30, 0.1f)
+                Actions.moveBy(0, 80, 0.15f, Interpolation.smooth),
+                Actions.moveTo(targetX, targetY + 80, 0.3f, Interpolation.smooth),
+                Actions.moveTo(targetX, targetY, 0.15f, Interpolation.bounceOut)
             ));
 
-            neighbor.addAction(Actions.sequence(
-                Actions.moveBy(0, -30, 0.1f),
-                Actions.moveTo(myOrigX, neighbor.getY() - 30, 0.4f, Interpolation.pow2Out),
-                Actions.moveBy(0, 30, 0.1f)
+            // Animasi Target mundur ke belakang, lalu geser ke slot lama
+            targetAlly.addAction(Actions.sequence(
+                Actions.moveBy(0, -80, 0.15f, Interpolation.smooth),
+                Actions.moveTo(ownerX, ownerY - 80, 0.3f, Interpolation.smooth),
+                Actions.moveTo(ownerX, ownerY, 0.15f, Interpolation.bounceOut)
             ));
-
-            Gdx.app.log("Skill", "REROUTE TRAFFIC! Bertukar posisi dengan " + neighbor.getData().name);
-            screen.uiManager.showNotification("REROUTE TRAFFIC:\nBertukar dengan " + neighbor.getData().name);
 
         } else {
-            Gdx.app.log("Skill", "REROUTE TRAFFIC gagal: Tidak ada kawan di sebelah.");
-            screen.uiManager.showNotification("REROUTE GAGAL:\nTidak ada target di sebelah!");
+            Gdx.app.log("Skill", "REROUTE TRAFFIC batal: Tidak ada sekutu di jalur sebelah untuk ditukar.");
         }
     }
 }

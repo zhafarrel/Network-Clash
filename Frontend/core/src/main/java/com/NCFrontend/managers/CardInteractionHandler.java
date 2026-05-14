@@ -29,10 +29,10 @@ public class CardInteractionHandler {
     }
 
     public void setupZonesAndButtons() {
-        createDropZone("Slot 0", 300, 280, 175, 230);
-        createDropZone("Slot 1", 700, 280, 175, 230);
-        createDropZone("Slot 2", 1100, 280, 175, 230);
-        createDropZone("Slot 3", 1500, 280, 175, 230);
+        createDropZone("Slot 0", 625, 480, 160, 230);
+        createDropZone("Slot 1", 800, 480, 160, 230);
+        createDropZone("Slot 2", 990, 480, 160, 230);
+        createDropZone("Slot 3", 1175, 480, 160, 230);
     }
 
     public void registerCard(CardActor visualCard) {
@@ -73,7 +73,7 @@ public class CardInteractionHandler {
                     Vector2 origin = (Vector2) visualCard.getUserObject();
                     visualCard.clearActions();
                     visualCard.addAction(Actions.parallel(
-                        Actions.scaleTo(1.0f, 1.0f, 0.2f),
+                        Actions.scaleTo(1.0f, 1.0f, 0.2f), // DIUBAH KE 0.8f
                         Actions.moveTo(origin.x, origin.y, 0.2f, Interpolation.pow3Out),
                         Actions.rotateTo(0, 0.2f)
                     ));
@@ -88,7 +88,7 @@ public class CardInteractionHandler {
             @Override
             public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
                 if (card.isFaceUp) {
-                    screen.uiManager.showCardDetail(card.getData());
+                    screen.uiManager.showCardDetail(card);
                     return true;
                 }
                 return false;
@@ -118,7 +118,7 @@ public class CardInteractionHandler {
                     card.clearActions();
                     Vector2 origin = (Vector2) card.getUserObject();
                     card.addAction(Actions.parallel(
-                        Actions.scaleTo(1.25f, 1.25f, 0.15f, Interpolation.smooth),
+                        Actions.scaleTo(1.25f, 1.25f, 0.15f, Interpolation.smooth), // DIUBAH KE 1.05f
                         Actions.moveTo(origin.x, origin.y + 40, 0.15f, Interpolation.smooth)
                     ));
                 }
@@ -130,7 +130,7 @@ public class CardInteractionHandler {
                     card.clearActions();
                     Vector2 origin = (Vector2) card.getUserObject();
                     card.addAction(Actions.parallel(
-                        Actions.scaleTo(1.0f, 1.0f, 0.15f, Interpolation.smooth),
+                        Actions.scaleTo(1.0f, 1.0f, 0.15f, Interpolation.smooth), // DIUBAH KE 0.8f
                         Actions.moveTo(origin.x, origin.y, 0.15f, Interpolation.smooth)
                     ));
                     screen.refreshHandZIndex();
@@ -140,7 +140,7 @@ public class CardInteractionHandler {
             @Override
             public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
                 if (button == com.badlogic.gdx.Input.Buttons.RIGHT) {
-                    screen.uiManager.showCardDetail(card.getData());
+                    screen.uiManager.showCardDetail(card);
                     return true;
                 }
 
@@ -149,7 +149,7 @@ public class CardInteractionHandler {
                         && !screen.hand.contains(card, true)
                         && !card.isFlooped) {
 
-                        boolean hasExecute = card.getData().description != null && card.getData().description.contains("(EXECUTE)");
+                        boolean hasExecute = card.getData().description != null && card.getData().description.toUpperCase().contains("EXECUTE");
 
                         if (hasExecute && y < 150) {
                             // --- MEMICU SKILL EXECUTE (FLOOP) ---
@@ -168,7 +168,7 @@ public class CardInteractionHandler {
                             return true;
                         }
                         else if (y >= 150) {
-                            screen.uiManager.showCardDetail(card.getData());
+                            screen.uiManager.showCardDetail(card);
                             return true;
                         }
                     }
@@ -279,8 +279,9 @@ public class CardInteractionHandler {
                                 if (screen.placedLanesCount == 4) {
                                     com.badlogic.gdx.Gdx.app.log("Game", "Semua jalur telah disetup! Memulai permainan...");
 
+                                    // HAPUS CameraAction di sini, cukup beri jeda 0.5 detik lalu mulai giliran!
                                     screen.stage.addAction(Actions.sequence(
-                                        Actions.delay(0.6f), // Tunggu animasi selesai
+                                        Actions.delay(0.5f),
                                         Actions.run(new Runnable() {
                                             @Override
                                             public void run() {
@@ -334,7 +335,6 @@ public class CardInteractionHandler {
                     // Simpan di koordinat DropZone, TAPI rekam dengan nama jalur asli
                     screen.placeCardInSlot(newCard, actualLaneName, getActor());
 
-                    screen.placeCardInSlot(newCard, actualLaneName, getActor());
                     com.badlogic.gdx.utils.Array<CardActor> alliesToNotify = screen.activeCards.values().toArray();
                     for (CardActor ally : alliesToNotify) {
                         if (ally.getData().abilities != null) {

@@ -3,6 +3,7 @@ package com.NCFrontend.ai;
 import com.NCFrontend.screens.GameplayScreen;
 import com.NCFrontend.ui.CardActor;
 import com.NCFrontend.models.ScriptData;
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.utils.Array;
 
 public class BotStrategy {
@@ -12,71 +13,71 @@ public class BotStrategy {
         this.screen = screen;
     }
 
-    // 1. Memilih kartu terbaik untuk dimainkan
     public CardActor getBestCardToPlay() {
         Array<CardActor> playableCards = new Array<>();
 
-        // Filter kartu yang RAM-nya cukup
         for (CardActor card : screen.enemyHand) {
-            if (card.getData().ramCost <= screen.enemyProfile.currentRam) {
+            // PERLINDUNGAN EKSTRA: Pastikan card dan data tidak null
+            if (card != null && card.getData() != null && card.getData().ramCost <= screen.enemyProfile.currentRam) {
                 playableCards.add(card);
             }
         }
 
-        if (playableCards.size == 0) return null; // Uang habis atau tangan kosong
+        if (playableCards.size == 0) {
+            Gdx.app.log("BotStrategy", "Tidak ada kartu yang bisa dimainkan (RAM habis/Tangan Kosong)");
+            return null;
+        }
 
-        // PRIORITAS 1: Mainkan Kartu Script (Sihir Instan)
         for (CardActor card : playableCards) {
             if (card.getData() instanceof ScriptData) {
+                Gdx.app.log("BotStrategy", "Memilih Kartu Script: " + card.getData().name);
                 return card;
             }
         }
 
-        // PRIORITAS 2: Mainkan Malware termahal / terkuat
-        playableCards.sort((c1, c2) -> Integer.compare(c2.getData().ramCost, c1.getData().ramCost));
+        // PERLINDUNGAN EKSTRA: Mencegah NullPointerException saat AI mengurutkan kartu
+        playableCards.sort((c1, c2) -> {
+            int cost1 = (c1 != null && c1.getData() != null) ? c1.getData().ramCost : 0;
+            int cost2 = (c2 != null && c2.getData() != null) ? c2.getData().ramCost : 0;
+            return Integer.compare(cost2, cost1);
+        });
+
+        Gdx.app.log("BotStrategy", "Memilih Kartu Malware: " + playableCards.get(0).getData().name);
         return playableCards.get(0);
     }
 
-    // 2. Memilih Lane terbaik
     public String getBestLaneForCard(CardActor card) {
         String specificLane = card.getData().validLane;
         if (specificLane != null && !specificLane.equalsIgnoreCase("ANY_LANE")) {
-            // CEK DULU: Apakah lane incaran musuh ini sedang dipasang di papan?
-            boolean laneExists = false;
             for (String bLane : screen.boardLanes) {
                 if (bLane != null && bLane.equalsIgnoreCase(specificLane)) {
-                    laneExists = true;
-                    break;
+                    return bLane; // Return EXACT case from boardLanes
                 }
             }
-            // Jika jalurnya ada, taruh di sana!
-            if (laneExists) return specificLane;
         }
 
-        // Jika ANY_LANE atau jalurnya tidak ada di papan, cari celah kosong (Prioritas 1)
         for (String lane : screen.boardLanes) {
             if (lane != null && !screen.enemyActiveCards.containsKey(lane) && !screen.activeCards.containsKey(lane)) {
                 return lane;
             }
         }
 
-        // Cari slot musuh yang belum diisi (Prioritas 2)
         for (String lane : screen.boardLanes) {
             if (lane != null && !screen.enemyActiveCards.containsKey(lane)) {
                 return lane;
             }
         }
 
-        return screen.boardLanes[0]; // Terpaksa menumpuk di slot 0
+        return screen.boardLanes[0];
     }
 
-    // 3. Mencari kartu di papan yang bisa di-EXECUTE (Floop)
     public CardActor getBestCardToFloop() {
         for (CardActor card : screen.enemyActiveCards.values()) {
-            boolean hasExecute = card.getData().description != null && card.getData().description.contains("(EXECUTE)");
+            boolean hasExecute = card.getData().description != null && card.getData().description.toUpperCase().contains("EXECUTE");
 
             if (hasExecute && !card.isFlooped && !card.isSilenced) {
-                return card; // Temukan 1 kartu yang siap ditekan tombol Execute-nya
+                Gdx.app.log("BotStrategy", "Menemukan kartu untuk di-Floop: " + card.getData().name);
+                return card;
             }
         }
         return null;

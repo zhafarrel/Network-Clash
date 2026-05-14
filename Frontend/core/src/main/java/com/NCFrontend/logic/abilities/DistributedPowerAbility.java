@@ -14,12 +14,19 @@ public class DistributedPowerAbility implements CardAbility {
         ObjectMap<String, CardActor> myBoard = isPlayer ? screen.activeCards : screen.enemyActiveCards;
 
         int botnetCount = 0;
-        // Hitung ada berapa Botnet Node di pasukan kawan
-        for (CardActor ally : myBoard.values()) {
-            if (ally.getData().name.equalsIgnoreCase("Botnet Node")) {
+
+        // --- PERBAIKAN BUG NESTED ITERATOR ---
+        // Kita hindari penggunaan myBoard.values() agar tidak bentrok dengan GamePhaseManager.
+        // Cek manual satu per satu menggunakan kunci (Key) nama lane.
+        String[] lanes = {"Localhost", "Cloud Storage", "DMZ", "Dark Node"};
+
+        for (String lane : lanes) {
+            CardActor ally = myBoard.get(lane);
+            if (ally != null && ally.getData().name.equalsIgnoreCase("Botnet Node")) {
                 botnetCount++;
             }
         }
+        // -------------------------------------
 
         if (owner.getData() instanceof ProgramData) {
             ProgramData pData = (ProgramData) owner.getData();

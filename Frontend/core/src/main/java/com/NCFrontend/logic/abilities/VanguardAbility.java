@@ -4,6 +4,7 @@ import com.NCFrontend.logic.CardAbility;
 import com.NCFrontend.screens.GameplayScreen;
 import com.NCFrontend.ui.CardActor;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.utils.ObjectMap;
 
 public class VanguardAbility implements CardAbility {
     @Override
@@ -28,8 +29,12 @@ public class VanguardAbility implements CardAbility {
         }
 
         if (Math.abs(ownerIdx - attackerIdx) == 1) {
-            Gdx.app.log("Skill", "VANGUARD AKTIF! Serangan ditarik oleh " + owner.getData().name);
-            return owner;
+            // Cek apakah lane di depan penyerang kosong
+            ObjectMap<String, CardActor> ownerBoard = isOwnerPlayer ? screen.activeCards : screen.enemyActiveCards;
+            if (!ownerBoard.containsKey(lanes[attackerIdx])) {
+                Gdx.app.log("Skill", "VANGUARD AKTIF! Serangan ditarik oleh " + owner.getData().name);
+                return owner;
+            }
         }
 
         return originalTarget;

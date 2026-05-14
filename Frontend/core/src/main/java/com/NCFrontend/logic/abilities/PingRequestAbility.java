@@ -11,9 +11,12 @@ import com.badlogic.gdx.scenes.scene2d.actions.Actions;
 public class PingRequestAbility implements CardAbility {
     @Override
     public void onPlayScript(CardActor owner, String targetLane, GameplayScreen screen) {
+        boolean isPlayer = screen.phaseManager.currentPhase == com.NCFrontend.managers.GamePhaseManager.GamePhase.PLAYER_MAIN;
+        com.badlogic.gdx.utils.ObjectMap<String, CardActor> targetBoard = isPlayer ? screen.enemyActiveCards : screen.activeCards;
+
         // Karena ini ofensif, targetnya adalah papan musuh
-        if (screen.enemyActiveCards.containsKey(targetLane)) {
-            CardActor target = screen.enemyActiveCards.get(targetLane);
+        if (targetBoard.containsKey(targetLane)) {
+            CardActor target = targetBoard.get(targetLane);
 
             // Kurangi HP musuh sebanyak 2
             int currentHp = CombatResolver.getHp(target.getData());
@@ -39,7 +42,7 @@ public class PingRequestAbility implements CardAbility {
                     Actions.parallel(Actions.scaleTo(0, 0, 0.3f), Actions.fadeOut(0.3f)),
                     Actions.removeActor()
                 ));
-                screen.enemyActiveCards.remove(targetLane);
+                targetBoard.remove(targetLane);
             }
 
         } else {

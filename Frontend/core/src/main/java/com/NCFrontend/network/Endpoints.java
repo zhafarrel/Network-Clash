@@ -7,3 +7,4 @@ public class Endpoints {
     // Alamat spesifik untuk mengambil master kartu
     public static final String GET_CARDS = BASE_URL + "/cards";
 }
+

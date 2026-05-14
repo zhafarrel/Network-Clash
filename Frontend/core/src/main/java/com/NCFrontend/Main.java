@@ -1,6 +1,7 @@
 package com.NCFrontend;
 
 import com.NCFrontend.managers.MyAssetManager;
+import com.NCFrontend.screens.DeckBuilderScreen;
 import com.NCFrontend.screens.GameplayScreen; // Import GameplayScreen yang baru dibuat
 import com.NCFrontend.screens.MainMenuScreen;
 import com.badlogic.gdx.Game;
@@ -17,12 +18,15 @@ public class Main extends Game {
         // 1. Inisialisasi AssetManager
         assetManager = MyAssetManager.getInstance();
 
-        // 2. Load Assets (Jika kamu punya metode loading di AssetManager, panggil di sini)
+        // 2. Load Assets (Jika kamu punya metode loading di AssetManager, panggil di
+        // sini)
         // Pastikan images/prog_01.png dkk sudah di-load jika menggunakan AssetManager.
-        // Jika CardFactory menggunakan new Texture(Gdx.files.internal...), maka baris ini aman.
+        // Jika CardFactory menggunakan new Texture(Gdx.files.internal...), maka baris
+        // ini aman.
 
         // 3. LANGSUNG ke GameplayScreen untuk ngetes kartu dari Backend
-        // Kita kirim 'this' (instance Main) agar GameplayScreen bisa mengakses batch jika perlu
+        // Kita kirim 'this' (instance Main) agar GameplayScreen bisa mengakses batch
+        // jika perlu
         this.setScreen(new MainMenuScreen(this));
     }
 
@@ -35,10 +39,13 @@ public class Main extends Game {
     @Override
     public void dispose() {
         // Bersihkan resource saat game ditutup
-        if (batch != null) batch.dispose();
-        if (assetManager != null) assetManager.dispose();
+        if (batch != null)
+            batch.dispose();
+        if (assetManager != null)
+            assetManager.dispose();
 
         // Pastikan screen yang aktif juga di-dispose
-        if (getScreen() != null) getScreen().dispose();
+        if (getScreen() != null)
+            getScreen().dispose();
     }
 }

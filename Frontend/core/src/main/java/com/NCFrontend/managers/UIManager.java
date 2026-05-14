@@ -12,10 +12,13 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
+import com.badlogic.gdx.scenes.scene2d.InputListener;
 import com.badlogic.gdx.scenes.scene2d.actions.Actions;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 
 public class UIManager {
     private GameplayScreen screen;
@@ -26,6 +29,10 @@ public class UIManager {
     private Label playerHpLabel;
     private Label enemyHpLabel;
 
+    // --- TEKSTUR GLOBAL AGAR TIDAK MEMORY LEAK ---
+    private Texture sharedDimTex;
+    private Texture sharedBoxTex;
+
     public UIManager(GameplayScreen screen) {
         this.screen = screen;
     }
@@ -34,46 +41,49 @@ public class UIManager {
         float screenW = screen.stage.getViewport().getWorldWidth();
         float screenH = screen.stage.getViewport().getWorldHeight();
 
-        // --- UI KESEHATAN (HP) ---
-        // Kita menggunakan model profil dari screen
+        // 1. BUAT TEKSTUR GLOBAL SEKALI SAJA UNTUK SELAMANYA
+        Pixmap dimPix = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+        dimPix.setColor(new Color(0, 0, 0, 0.85f));
+        dimPix.fill();
+        sharedDimTex = new Texture(dimPix);
+        dimPix.dispose();
+
+        Pixmap boxPix = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+        boxPix.setColor(new Color(0.2f, 0.2f, 0.2f, 1f));
+        boxPix.fill();
+        sharedBoxTex = new Texture(boxPix);
+        boxPix.dispose();
+
+        // --- UI KESEHATAN PEMAIN (HP) - KOTAK KIRI ---
         playerHpLabel = new Label("HP: " + screen.playerProfile.hp, new Label.LabelStyle(new BitmapFont(), Color.GREEN));
         playerHpLabel.setFontScale(1.5f);
-        playerHpLabel.setPosition(screenW - 200, screenH - 160);
+        playerHpLabel.setSize(200, 40);
+        playerHpLabel.setAlignment(com.badlogic.gdx.utils.Align.center);
+        playerHpLabel.setPosition(screenW / 2f - 355, 315);
         screen.stage.addActor(playerHpLabel);
 
-        enemyHpLabel = new Label("HP: " + screen.enemyProfile.hp, new Label.LabelStyle(new BitmapFont(), Color.RED));
-        enemyHpLabel.setFontScale(1.5f);
-        enemyHpLabel.setPosition(30, screenH - 160);
-        screen.stage.addActor(enemyHpLabel);
-
-        deckCountLabel = new Label("0", new Label.LabelStyle(new BitmapFont(), Color.YELLOW));
-        deckCountLabel.setFontScale(2.5f);
-        deckCountLabel.setPosition(100, 420);
-        screen.stage.addActor(deckCountLabel);
-
-        phaseLabel = new Label("MEMUAT...", new Label.LabelStyle(new BitmapFont(), Color.WHITE));
-        phaseLabel.setFontScale(2.0f);
-        phaseLabel.setPosition(screenW / 2f - 100, screenH - 50);
-        screen.stage.addActor(phaseLabel);
-
-        // --- RENDER LABEL RAM (Kanan Atas) ---
-        // Ambil RAM dari profil pemain
-        ramLabel = new Label("RAM: " + screen.playerProfile.currentRam + " / " + screen.playerProfile.maxRam, new Label.LabelStyle(new BitmapFont(), Color.GREEN));
-        ramLabel.setFontScale(1.8f);
-        ramLabel.setPosition(screenW - 200, screenH - 120);
+        // --- RENDER LABEL RAM - KOTAK TENGAH ---
+        ramLabel = new Label("RAM: " + screen.playerProfile.currentRam + " / " + screen.playerProfile.maxRam, new Label.LabelStyle(new BitmapFont(), Color.CYAN));
+        ramLabel.setFontScale(1.5f);
+        ramLabel.setSize(250, 40);
+        ramLabel.setAlignment(com.badlogic.gdx.utils.Align.center);
+        ramLabel.setPosition(screenW / 2f - 125, 315);
         screen.stage.addActor(ramLabel);
 
-        Pixmap btnPix = new Pixmap(180, 50, Pixmap.Format.RGBA8888);
-        btnPix.setColor(new Color(0.8f, 0.2f, 0.2f, 1f));
-        btnPix.fill();
-        Image endTurnBtn = new Image(new Texture(btnPix));
-        btnPix.dispose();
-        endTurnBtn.setPosition(screenW - 200, 20);
-        screen.stage.addActor(endTurnBtn);
+        // --- UI KESEHATAN MUSUH (HP) - KOTAK KANAN ---
+        enemyHpLabel = new Label("HP: " + screen.enemyProfile.hp, new Label.LabelStyle(new BitmapFont(), Color.RED));
+        enemyHpLabel.setFontScale(1.5f);
+        enemyHpLabel.setSize(200, 40);
+        enemyHpLabel.setAlignment(com.badlogic.gdx.utils.Align.center);
+        enemyHpLabel.setPosition(screenW / 2f + 185, 315);
+        screen.stage.addActor(enemyHpLabel);
 
-        Label btnText = new Label("AKHIRI GILIRAN", new Label.LabelStyle(new BitmapFont(), Color.WHITE));
-        btnText.setPosition(screenW - 180, 35);
-        screen.stage.addActor(btnText);
+        // --- TOMBOL END TURN ---
+        Image endTurnBtn = new Image(sharedDimTex); // Pinjam tekstur dim agar tidak buat baru
+        endTurnBtn.getColor().a = 0f; // Transparan
+        endTurnBtn.setSize(160, 75);
+        endTurnBtn.setPosition(1445, 265);
+        screen.stage.addActor(endTurnBtn);
 
         endTurnBtn.addListener(new ClickListener() {
             @Override
@@ -105,111 +115,83 @@ public class UIManager {
         }
     }
 
-    // --- PERBAIKAN FUNGSI UPDATE HP ---
     public void updateHP() {
         if (playerHpLabel != null) playerHpLabel.setText("HP: " + screen.playerProfile.hp);
         if (enemyHpLabel != null) enemyHpLabel.setText("HP: " + screen.enemyProfile.hp);
     }
 
-    public void showCardDetail(com.NCFrontend.models.BaseCard data) {
+    public void showCardDetail(CardActor originalCard) {
         if (isDialogOpen) return;
-        isDialogOpen = true;
+        this.isDialogOpen = true;
 
-        Group dialogGroup = new Group();
+        Image dimBackground = new Image(sharedDimTex); // PAKE TEKSTUR GLOBAL
+        dimBackground.setSize(com.badlogic.gdx.Gdx.graphics.getWidth(), com.badlogic.gdx.Gdx.graphics.getHeight());
 
-        Pixmap overlayPix = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
-        overlayPix.setColor(new Color(0, 0, 0, 0.85f));
-        overlayPix.fill();
-        Image overlay = new Image(new Texture(overlayPix));
-        overlayPix.dispose();
-        overlay.setSize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-        dialogGroup.addActor(overlay);
+        CardActor popupCard = new CardActor(originalCard.getData(), originalCard.illustrationTexture);
+        float zoomFactor = 1.8f;
+        popupCard.setScale(zoomFactor);
 
-        Pixmap boxPix = new Pixmap(400, 500, Pixmap.Format.RGBA8888);
-        boxPix.setColor(new Color(0.1f, 0.1f, 0.15f, 1f)); boxPix.fill();
-        boxPix.setColor(Color.CYAN); boxPix.drawRectangle(0, 0, 400, 500);
-        Image box = new Image(new Texture(boxPix)); boxPix.dispose();
-        box.setPosition((Gdx.graphics.getWidth() - 400) / 2f, (Gdx.graphics.getHeight() - 500) / 2f);
-        dialogGroup.addActor(box);
+        float popupWidth = popupCard.getWidth() * zoomFactor;
+        float popupHeight = popupCard.getHeight() * zoomFactor;
 
-        BitmapFont font = new BitmapFont();
+        popupCard.setPosition(
+            (com.badlogic.gdx.Gdx.graphics.getWidth() - popupCard.getWidth()) / 2f,
+            (com.badlogic.gdx.Gdx.graphics.getHeight() - popupCard.getHeight()) / 2f
+        );
 
-        font.getData().setScale(1.5f);
-        Label nameLbl = new Label(data.name.toUpperCase(), new Label.LabelStyle(font, Color.YELLOW));
-        nameLbl.setPosition(box.getX() + 30, box.getY() + 450);
-        dialogGroup.addActor(nameLbl);
+        popupCard.isOnBoard = false;
+        popupCard.isFaceUp = true;
 
-        font.getData().setScale(1.2f);
-        Label costLbl = new Label("RAM Cost: " + data.ramCost, new Label.LabelStyle(font, Color.CYAN));
-        costLbl.setPosition(box.getX() + 30, box.getY() + 400);
-        dialogGroup.addActor(costLbl);
+        Label.LabelStyle labelStyle = new Label.LabelStyle(new BitmapFont(), Color.LIGHT_GRAY);
+        Label closeLabel = new Label("[ KLIK DIMANA SAJA UNTUK TUTUP ]", labelStyle);
 
-        String type = "MALWARE";
-        if (data instanceof com.NCFrontend.models.ProgramData) type = "PROGRAM";
-        else if (data instanceof com.NCFrontend.models.ScriptData) type = "SCRIPT";
+        closeLabel.setPosition(
+            (com.badlogic.gdx.Gdx.graphics.getWidth() - closeLabel.getWidth()) / 2f,
+            (com.badlogic.gdx.Gdx.graphics.getHeight() - popupHeight) / 2f - 40
+        );
 
-        Label typeLbl = new Label("Tipe: " + type, new Label.LabelStyle(font, Color.LIGHT_GRAY));
-        typeLbl.setPosition(box.getX() + 30, box.getY() + 360);
-        dialogGroup.addActor(typeLbl);
+        final Group popupGroup = new Group();
+        popupGroup.addActor(dimBackground);
+        popupGroup.addActor(popupCard);
+        popupGroup.addActor(closeLabel);
 
-        int atk = com.NCFrontend.logic.CombatResolver.getAtk(data);
-        int hp = com.NCFrontend.logic.CombatResolver.getHp(data);
-        if (atk > 0 || hp > 0) {
-            Label statLbl = new Label("ATK: " + atk + "   |   HP: " + hp, new Label.LabelStyle(font, Color.ORANGE));
-            statLbl.setPosition(box.getX() + 30, box.getY() + 320);
-            dialogGroup.addActor(statLbl);
-        }
-
-        Label descLbl = new Label(data.description, new Label.LabelStyle(font, Color.WHITE));
-        descLbl.setWrap(true);
-        descLbl.setWidth(340);
-        descLbl.setPosition(box.getX() + 30, box.getY() + 200);
-        dialogGroup.addActor(descLbl);
-
-        Label closeLbl = new Label("[ KLIK DIMANA SAJA UNTUK TUTUP ]", new Label.LabelStyle(font, Color.GRAY));
-        closeLbl.setPosition(box.getX() + 40, box.getY() + 30);
-        dialogGroup.addActor(closeLbl);
-
-        screen.stage.addActor(dialogGroup);
-
-        ClickListener closeListener = new ClickListener() {
+        dimBackground.addListener(new InputListener() {
             @Override
-            public void clicked(InputEvent event, float x, float y) {
-                dialogGroup.remove();
+            public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+                popupGroup.remove();
                 isDialogOpen = false;
+                return true;
             }
-        };
-        overlay.addListener(closeListener);
-        box.addListener(closeListener);
+        });
+
+        screen.stage.addActor(popupGroup);
     }
 
     public void showReplaceDialog(CardActor oldCard, CardActor newCard, String zoneName, Actor dropZone) {
         isDialogOpen = true;
 
-        Pixmap overlayPix = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
-        overlayPix.setColor(new Color(0, 0, 0, 0.7f)); overlayPix.fill();
-        Image overlay = new Image(new Texture(overlayPix)); overlayPix.dispose();
+        Image overlay = new Image(sharedDimTex); // PAKE TEKSTUR GLOBAL
         overlay.setSize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
 
-        Pixmap boxPix = new Pixmap(400, 200, Pixmap.Format.RGBA8888);
-        boxPix.setColor(new Color(0.2f, 0.2f, 0.2f, 1f)); boxPix.fill();
-        Image box = new Image(new Texture(boxPix)); boxPix.dispose();
+        Image box = new Image(sharedBoxTex); // PAKE TEKSTUR GLOBAL
+        box.setSize(400, 200);
         box.setPosition((Gdx.graphics.getWidth() - 400) / 2f, (Gdx.graphics.getHeight() - 200) / 2f);
 
         Label text = new Label("Lane Penuh!\nTimpa " + oldCard.getData().name + " dengan\n" + newCard.getData().name + "?",
             new Label.LabelStyle(new BitmapFont(), Color.WHITE));
         text.setPosition(box.getX() + 30, box.getY() + 110);
 
-        Pixmap btnYesPix = new Pixmap(120, 40, Pixmap.Format.RGBA8888);
-        btnYesPix.setColor(Color.OLIVE); btnYesPix.fill();
-        Image btnYes = new Image(new Texture(btnYesPix)); btnYesPix.dispose();
+        // Pakai tekstur abu-abu untuk tombol agar tidak repot buat baru
+        Image btnYes = new Image(sharedBoxTex);
+        btnYes.setColor(Color.OLIVE);
+        btnYes.setSize(120, 40);
         btnYes.setPosition(box.getX() + 40, box.getY() + 30);
         Label lblYes = new Label("YA", new Label.LabelStyle(new BitmapFont(), Color.WHITE));
         lblYes.setPosition(btnYes.getX() + 50, btnYes.getY() + 10);
 
-        Pixmap btnNoPix = new Pixmap(120, 40, Pixmap.Format.RGBA8888);
-        btnNoPix.setColor(Color.MAROON); btnNoPix.fill();
-        Image btnNo = new Image(new Texture(btnNoPix)); btnNoPix.dispose();
+        Image btnNo = new Image(sharedBoxTex);
+        btnNo.setColor(Color.MAROON);
+        btnNo.setSize(120, 40);
         btnNo.setPosition(box.getX() + 240, box.getY() + 30);
         Label lblNo = new Label("TIDAK", new Label.LabelStyle(new BitmapFont(), Color.WHITE));
         lblNo.setPosition(btnNo.getX() + 35, btnNo.getY() + 10);
@@ -224,10 +206,7 @@ public class UIManager {
             public void clicked(InputEvent event, float x, float y) {
                 dialogGroup.remove();
                 isDialogOpen = false;
-
-                // --- POTONG RAM KARENA PEMAIN SETUJU ---
                 screen.phaseManager.useRam(newCard.getData().ramCost);
-
                 screen.hand.removeValue(newCard, true);
                 screen.updateHandPositions();
                 oldCard.addAction(Actions.sequence(
@@ -256,49 +235,36 @@ public class UIManager {
     }
 
     public void showNotification(String message) {
-        // 1. Hapus notifikasi lama jika ada yang menumpuk
         com.badlogic.gdx.scenes.scene2d.Actor oldNotif = screen.stage.getRoot().findActor("NOTIFICATION_POPUP");
         if (oldNotif != null) {
             oldNotif.addAction(com.badlogic.gdx.scenes.scene2d.actions.Actions.removeActor());
         }
 
-        // 2. Buat background hitam semi-transparan
-        com.badlogic.gdx.graphics.Pixmap pixmap = new com.badlogic.gdx.graphics.Pixmap(1, 1, com.badlogic.gdx.graphics.Pixmap.Format.RGBA8888);
-        pixmap.setColor(new com.badlogic.gdx.graphics.Color(0, 0, 0, 0.85f));
-        pixmap.fill();
-        com.badlogic.gdx.graphics.Texture bgTex = new com.badlogic.gdx.graphics.Texture(pixmap);
-        pixmap.dispose();
-
-        // 3. Setup Teks
         com.badlogic.gdx.graphics.g2d.BitmapFont font = new com.badlogic.gdx.graphics.g2d.BitmapFont();
-        font.getData().setScale(1.2f); // Perkecil sedikit agar deskripsi panjang muat
+        font.getData().setScale(1.2f);
         com.badlogic.gdx.scenes.scene2d.ui.Label.LabelStyle style = new com.badlogic.gdx.scenes.scene2d.ui.Label.LabelStyle(font, com.badlogic.gdx.graphics.Color.CYAN);
         com.badlogic.gdx.scenes.scene2d.ui.Label label = new com.badlogic.gdx.scenes.scene2d.ui.Label(message, style);
         label.setAlignment(com.badlogic.gdx.utils.Align.center);
-
-        // --- TAMBAHAN BARU: AGAR TEKS PANJANG TURUN KE BAWAH ---
         label.setWrap(true);
 
-        // 4. Masukkan ke dalam Table (Kotak)
         com.badlogic.gdx.scenes.scene2d.ui.Table table = new com.badlogic.gdx.scenes.scene2d.ui.Table();
         table.setName("NOTIFICATION_POPUP");
-        table.setBackground(new com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable(new com.badlogic.gdx.graphics.g2d.TextureRegion(bgTex)));
 
-        // --- TAMBAHAN BARU: BERI BATAS LEBAR MAKSIMAL (misal 600 pixel) ---
+        // PAKE TEKSTUR GLOBAL
+        table.setBackground(new TextureRegionDrawable(new TextureRegion(sharedDimTex)));
+
         table.add(label).width(600).pad(15).padLeft(30).padRight(30);
         table.pack();
 
-        // Posisikan di tengah atas layar
         table.setPosition(
             (com.badlogic.gdx.Gdx.graphics.getWidth() - table.getWidth()) / 2f,
             com.badlogic.gdx.Gdx.graphics.getHeight() - table.getHeight() - 50
         );
 
-        // 5. Animasi Muncul -> Diam 5 Detik -> Menghilang
-        table.getColor().a = 0f; // Mulai dengan transparan
+        table.getColor().a = 0f;
         table.addAction(com.badlogic.gdx.scenes.scene2d.actions.Actions.sequence(
             com.badlogic.gdx.scenes.scene2d.actions.Actions.fadeIn(0.3f),
-            com.badlogic.gdx.scenes.scene2d.actions.Actions.delay(4.5f), // Tahan selama ~5 detik
+            com.badlogic.gdx.scenes.scene2d.actions.Actions.delay(4.5f),
             com.badlogic.gdx.scenes.scene2d.actions.Actions.fadeOut(0.5f),
             com.badlogic.gdx.scenes.scene2d.actions.Actions.removeActor()
         ));
